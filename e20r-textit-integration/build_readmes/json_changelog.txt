@@ -1,0 +1,1 @@
+<h3>1.4.3</h3><ol><li>Force discount code field to be visible in Credit Card payment section</li></ol>

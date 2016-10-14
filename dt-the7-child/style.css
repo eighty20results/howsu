@@ -1,0 +1,36 @@
+
+/*
+ Theme Name: The7.2 - Child Theme
+ Theme URI: http://dream-theme.com/
+ Description: This is a Child theme for the "The7" theme. The7 is available from http://themeforest.net
+ Author: Thomas Sjolshagen - Eighty / 20 Results <thomas@eighty20results.com>
+ Author URI: https://eighty20results.com/thomas-sjolshagen/
+ Template:     dt-the7
+ Version:      1.0.0
+ Tags: one-column, two-columns, right-sidebar, flexible-width, custom-menu, editor-style, featured-images, post-formats, rtl-language-support, sticky-post, translation-ready
+ License:      GNU General Public License v2 or later
+ License URI:  http://www.gnu.org/licenses/gpl-2.0.html
+ Text Domain:  the7mk2-child
+*/
+#main-nav.underline-hover.gradient-decor>li.act>a i.underline, #main-nav.underline-hover>li.act>a i.underline, #main-nav.underline-hover>li>a:hover i.underline, .no-touch header:not(.sub-downwards) #main-nav.underline-hover>li:hover>a i.underline {
+    border-bottom: #fff 2px solid;
+}
+#main-nav>li>a .text-wrap>span, #main-nav>li>a>span,
+#main-nav>li>a:hover .text-wrap>span:hover, #main-nav>li>a>span:hover {
+    color: #FFF;
+}
+/* Hide the "Cancel All Memberships" button */
+div#pmpro_cancel .pmpro_actionlinks > a[href*="=all"] {
+    display: none;
+}
+/*
+div#pmpro_cancel .pmpro_actionlinks > a:not(button) {
+    display: inline-block;
+}
+*/
+nav#nav-below a[href*="howsu"] {
+    display: none;
+}
+div#pmpro_account-profile a[href*="page_id=577"] {
+    display: none;
+}
