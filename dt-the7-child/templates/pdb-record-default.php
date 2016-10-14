@@ -13,7 +13,7 @@ $util->display_notice();
 
 <div class="wrap <?php echo $this->wrap_class ?>">
   <?php
-  wp_nonce_field('e20r_pdb_update', 'pdb-nonce');
+  wp_nonce_field('e20r_pdb_update', 'e20r-pdb-nonce');
   /*
    * as of version 1.6 this template can handle the display when no record is found
    *
