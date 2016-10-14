@@ -43,13 +43,15 @@
                 }
             }
 
-            jQuery('#edit').on('click', function (e) {
-                self.edit(e, this);
+            jQuery('a#edit').on('click', function () {
+                event.preventDefault();
+                window.console.log("User clicked 'edit'");
+                self.edit(this);
             });
 
-            jQuery('#save').on('click', function (e) {
-
-                self.save(e, this);
+            jQuery('a#save').on('click', function () {
+                event.preventDefault();
+                self.save(this);
             });
 
             jQuery('[name="country_code"]').on('change', function () {
@@ -83,9 +85,9 @@
             });
 
         },
-        save: function (e, element) {
+        save: function (element) {
 
-            e.preventDefault();
+            event.preventDefault();
 
             var $nonce_val = jQuery('#e20r-pdb-nonce').val();
             var attrName = jQuery(element).attr('name');
@@ -111,7 +113,7 @@
                 timeout: textIt.settings.timeout,
                 data: {
                     'action': 'e20r_pdb_update',
-                    'nonce': $nonce_val,
+                    'e20r-pdb-nonce': $nonce_val,
                     'pdb': record_id,
                     'col': attrName, // jQuery(element).attr('name'),
                     'val': newVal,
@@ -131,8 +133,10 @@
                 }
             });
         },
-        edit: function (e, element) {
-            e.preventDefault();
+        edit: function (element) {
+
+            window.console.log("user clicked edit button.")
+            event.preventDefault();
 
             var attrName = jQuery(element).attr('name');
             var box = "." + attrName + "_input";
