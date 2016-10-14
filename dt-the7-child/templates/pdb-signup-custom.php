@@ -55,7 +55,11 @@ $util->display_notice();
 
 	if ( empty( $level_name ) ) {
 		$level      = pmpro_getMembershipLevelForUser();
-		$level_name = $ti->_process_text( $level->name );
+		if ( !empty( $level ) ) {
+			$level_name = $ti->_process_text( $level->name );
+		} else {
+			$level_name = $ti->_process_text('Free');
+		}
 	}
 
 	if ( WP_DEBUG ) {
