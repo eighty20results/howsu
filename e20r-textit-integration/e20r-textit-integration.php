@@ -1424,3 +1424,13 @@ class e20rTextitIntegration {
 
 spl_autoload_register( array( e20rTextitIntegration::get_instance(), '__class_loader' ) );
 register_activation_hook( __FILE__, 'e20rTextitIntegration::configureRoles' );
+
+if ( ! class_exists( '\\PucFactory' ) ) {
+	require_once( plugin_dir_path( __FILE__ ) . 'plugin-updates/plugin-update-checker.php' );
+}
+
+$plugin_updates = \PucFactory::buildUpdateChecker(
+	'https://eighty20results.com/protected-content/e20r-textit-integration/metadata.json',
+	__FILE__,
+	'e20r-textit-integration'
+);
