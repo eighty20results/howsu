@@ -50,3 +50,6 @@ fabric.properties
 /kits/pmpro-register-helper-fields.php
 /kits/pdb-signup-custom.php
 /kits/theme-functions.php
+/e20r-textit-integration/build/
+/e20r-textit-integration/build_readmes/json_changelog.txt
+/e20r-textit-integration/build_readmes/readme_changelog.txt
