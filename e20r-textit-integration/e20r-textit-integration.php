@@ -399,12 +399,13 @@ class e20rTextitIntegration {
 
 		// TODO: Add NONCE handling
 		$service_number = $this->util->_get_variable( 'snu', null );
+		wp_verify_nonce( 'e20r-pdb-nonce', 'e20r_pdb_update');
 	}
 
 	public function ajaxResumeService() {
 
 		// TODO: Add NONCE handling
-
+		wp_verify_nonce( 'e20r-pdb-nonce', 'e20r_pdb_update');
 	}
 
 	/**
@@ -415,6 +416,8 @@ class e20rTextitIntegration {
 		if ( ! is_user_logged_in() ) {
 			wp_send_json_error( 'User not logged in' );
 		}
+
+		wp_verify_nonce( 'e20r-pdb-nonce', 'e20r_pdb_update');
 
 		if ( WP_DEBUG ) {
 			error_log( "Preparing to update database via AJAX call" );
