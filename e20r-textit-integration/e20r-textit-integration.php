@@ -899,20 +899,39 @@ class e20rTextitIntegration {
 		?>
 		<div class="pdb-membership-id">
 			<p>
-				<strong><?php _e( "Membership ID", "textit" ); ?>
+				<strong><?php _e( "Membership ID", "e20rtextit" ); ?>
 					:</strong> <?php esc_attr_e( $current_user->member_number ); ?>
 			</p>
 			<p>
 				<a href="<?php echo $edit_link; ?>" class="dt-btn-m dt-btn ripple" target="_self"
 				   style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">
 					<span class="text-wrap"
-					      style="position: relative; z-index: 2;"><?php _e( "Update/Edit Personal Details", "textit" ); ?></span>
+					      style="position: relative; z-index: 2;"><?php _e( "Update/Edit Personal Details", "e20rtextit" ); ?></span>
 				</a>
 			</p>
 		</div>
 		<?php
 
 		return ob_get_clean();
+	}
+
+	public function displayWelcomeMessage( $attrs = array() ) {
+
+		global $current_user;
+
+		$firstname = get_user_meta($current_user->ID, 'first_name', true);
+		ob_start();
+		?>
+		<div class="e20r-textit-welcom-message">
+			<p>
+				<strong><?php printf( __( "Thank you, %s for signing up!", "e20rtextit" ), esc_attr( $firstname ) ); ?></strong>
+			</p>
+			<p>
+				<?php _e("You may complete your registration or update/change any of the information by visiting the link provided in the welcome acknowledgement", "e20rtextit"); ?>
+			</p>
+		</div>
+		<?php
+		return ob_get_contents();
 	}
 
 	/**
@@ -1317,6 +1336,7 @@ class e20rTextitIntegration {
 
 		// Shortcodes
 		add_shortcode( 'pdb_membership_id', array( $this, 'displayMembershipId' ) );
+		add_shortcode( 'e20r_textit_welcome', array( $this, 'displayWelcomeMessage' ) );
 	}
 
 	public function loadHelpers() {
