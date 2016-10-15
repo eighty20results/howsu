@@ -1,8 +1,8 @@
 {
   "name" : "Eighty/20 Results - TextIt/PMPro Service interface",
   "slug" : "e20r-textit-integration",
-  "download_url" : "https://eighty20results.com/protected-content/e20r-textit-integration/e20r-textit-integration-1.0.zip",
-  "version" : "1.0",
+  "download_url" : "https://eighty20results.com/protected-content/e20r-textit-integration/e20r-textit-integration-1.1.1.zip",
+  "version" : "1.1.1",
   "tested" : "4.6.1",
   "requires" : "3.9",
   "author" : "Thomas Sjolshagen <thomas@eighty20results.com>",
@@ -11,7 +11,7 @@
   "homepage" : "https://eighty20results.com/paid-memberships-pro/do-it-for-me/",
   "sections" : {
     "description" : "Integration between Paid Memberships Pro and the TextIt service. Allows register/cancel operations plus pause/resume of TextIt services based on membership events or member action.",
-    "changelog" : "<h3>1.0</h3><ol><li>Initial release</li></ol>",
+    "changelog" : "<h3>1.1.1</h3><ol><li>ENH: Fix typo</li></ol><h3>1.1</h3><ol><li>ENH: Languages stub</li><li>ENH: Initial commit of license functionality.</li><li>ENH: Add welcome message shortcode</li></ol><h3>1.0</h3><ol><li>Initial release</li></ol>",
     "faq" : "<h3>I found a bug in the plugin.</h3>Please report your issue to us by using the <a href='https://eighty20results.com/forums/support/' target='_blank'>Support Forum</a> on The Eighty / 20 Website and we'll normally respond within 1 business day."
     }
 }

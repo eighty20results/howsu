@@ -3,7 +3,7 @@ Contributors: sjolshag
 Tags: TextIt, memberships, paid memberships pro
 Requires at least: 3.4
 Tested up to: 4.6.1
-Stable tag: 1.0
+Stable tag: 1.1
 
 Eighty/20 Results - TextIt/PMPro Service interface
 
@@ -19,6 +19,17 @@ Integration between Paid Memberships Pro and the TextIt service. Allows register
 
 == Changelog ==
 
+== 1.1.1 ==
+
+* ENH: Fix typo
+
+== 1.1 ==
+
+* ENH: Languages stub
+* ENH: Initial commit of license functionality.
+* ENH: Add welcome message shortcode
+
 == 1.0 ==
 
 * Initial release
+
