@@ -113,6 +113,7 @@ function badaddy_login($atts)
 		wp_login_form(
 			array(
 				'remember' => true,
+				// 'redirect' => (is_ssl() ? 'https://' : 'http://' ) . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
 				'redirect' => site_url( $_SERVER['REQUEST_URI'] ),
 				'form_id' => 'loginform',
 				'id_email' => 'user_email',
