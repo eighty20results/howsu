@@ -2,7 +2,7 @@
 # Build script for Eighty/20 Results - Text-It Messaging Service integration
 #
 short_name="e20r-textit-integration"
-include=(images includes js languages plugin-updates utilities e20r-textit-integration.php README.txt)
+include=(images includes js languages license plugin-updates utilities e20r-textit-integration.php README.txt)
 exclude=(*.yml *.phar composer.* vendor)
 build=(plugin-updates/vendor/*.php)
 plugin_path="${short_name}"
