@@ -1,1 +1,1 @@
-ENH: Fix typo
+ENH/BUG: Didn't always handle empty data properly in shortcodes

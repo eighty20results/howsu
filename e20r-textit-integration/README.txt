@@ -3,7 +3,7 @@ Contributors: sjolshag
 Tags: TextIt, memberships, paid memberships pro
 Requires at least: 3.4
 Tested up to: 4.6.1
-Stable tag: 1.1
+Stable tag: 1.1.2
 
 Eighty/20 Results - TextIt/PMPro Service interface
 
@@ -18,6 +18,10 @@ Integration between Paid Memberships Pro and the TextIt service. Allows register
 2. Activate the plugin through the 'Plugins' menu in WordPress.
 
 == Changelog ==
+
+== 1.1.2 ==
+
+* ENH/BUG: Didn't always handle empty data properly in shortcodes
 
 == 1.1.1 ==
 
