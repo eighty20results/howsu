@@ -894,6 +894,10 @@ class e20rTextitIntegration {
 			$this->loadUserDBInfo( $user->user_email );
 		}
 
+		if ( empty( $this->userRecord->id ) ) {
+			return null;
+		}
+
 		$edit_link = add_query_arg( 'pdb', $this->userRecord->id, home_url( '/view-my-details/' ) );
 		ob_start();
 		?>
@@ -920,11 +924,15 @@ class e20rTextitIntegration {
 		global $current_user;
 
 		$firstname = get_user_meta($current_user->ID, 'first_name', true);
+
 		ob_start();
 		?>
 		<div class="e20r-textit-welcom-message">
-			<p>
+			<p> <?php if (!empty( $firstname ) ) { ?>
 				<strong><?php printf( __( "Thank you, %s for signing up!", "e20rtextit" ), esc_attr( $firstname ) ); ?></strong>
+			<?php } else { ?>
+				<strong><?php printf( __( "Thank you, for signing up!", "e20rtextit" ), esc_attr( $firstname ) ); ?></strong>
+			<?php } ?>
 			</p>
 			<p>
 				<?php _e("You may complete your registration or update/change any of the information by visiting the link provided in the welcome acknowledgement email.", "e20rtextit"); ?>
