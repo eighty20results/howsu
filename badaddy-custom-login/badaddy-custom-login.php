@@ -1,17 +1,19 @@
 <?php
 /*
-  Plugin Name: BadAddy Login
+  Plugin Name: Custom Login page for How's U?
   Description: Custom WP Login for Howsu..
-  Version: 1.3
-  Author: Andrew Walker
-  Author URI: http://badaddy.uk
+  Version: 1.6
+  Author: Thomas Sjolshagen <thomas@eighty20results.com>
+  Author URI: https://eighty20results.com/thomas-sjolshagen
  */
 
 /**
+ * @since 1.1 - forked from original attempt by 3rd party (badaddy.uk)
  * @since 1.2 - Updated background & text color (red/white) for login error message
  * @since 1.3 - Handle login & errors in this plugin
  * @since 1.4 - Use page slugs instead of page IDs (transitioning to being able to configure on an option page), remove unneeded code
- *
+ * @since 1.5 - Fix redirect loop
+ * @since 1.6 - Renamed shortcodes
  */
 
 function badaddy_verify_user( $user, $username, $password ) {
@@ -44,12 +46,16 @@ function badaddy_redirect_to_custom() {
 	$login_page = add_query_arg( array( 'login' => null ), home_url( '/login/' ) );
 	$page_viewed = basename($_SERVER['REQUEST_URI']);
 
-	if ('wp-login.php' == $page_viewed && 'GET' == $_SERVER['REQUEST_METHOD']) {
+	if ( stripos( $page_viewed, 'login' ) ) {
+		return;
+	}
+
+	if ( !is_user_logged_in() && ( 'wp-login.php' == $page_viewed && 'GET' == $_SERVER['REQUEST_METHOD'] ) ) {
 		wp_safe_redirect( $login_page );
 		exit;
 	}
 }
-add_action( 'init', 'badaddy_redirect_to_custom' );
+add_action( 'template_redirect', 'badaddy_redirect_to_custom' );
 
 // The callback function for the [cr] shortcode
 function badaddy_login($atts)
@@ -136,7 +142,7 @@ function badaddy_login($atts)
 	</div>
 	<?php
 }
-add_shortcode('badaddy_login', 'badaddy_login');
+add_shortcode('howsu_login', 'badaddy_login');
 
 function badaddy_logout() {
 	wp_logout();
@@ -144,4 +150,4 @@ function badaddy_logout() {
 	exit;
 }
 
-add_shortcode('badaddy_logout', 'badaddy_logout');
+add_shortcode('howsu_logout', 'badaddy_logout');
