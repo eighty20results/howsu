@@ -2,7 +2,7 @@
 /*
   Plugin Name: BadAddy Registration
   Description: Custom WP Registration for Howsu..
-  Version: 1.3.3
+  Version: 1.3.5
   Author: Andrew Walker example from (Tristan Slater w/ Agbonghama Collins)
   Author URI: http://badaddy.uk
  */
@@ -17,6 +17,8 @@
  * @since 1.3.1 - Include filter for email address as a valid username (including email addresses w/ + characters. ( Eighty / 20 Results )
  * @since 1.3.2 - Fix field sanitation and login URL for WP
  * @since 1.3.3 - Use page stub, not numeric page ID
+ * @since 1.3.4 - Fixed JavaScript (button color) and CSS for registration form
+ * @since 1.3.5 - Changed warning color for password input (comparison field)
  */
 
 
@@ -251,7 +253,7 @@ function cr_cb() {
 add_shortcode('badaddy_registration', 'cr_cb');
 
 function cr_enqueue() {
-	wp_enqueue_style('badaddy-registration', plugin_dir_url(__FILE__) . 'css/badaddy.css', array( 'style' ), '1.1' );
-	wp_enqueue_script('badaddy-registration', plugin_dir_url(__FILE__) . 'javascript/badaddy-registration.js', array( 'jquery' ), '1.1', true );
+	wp_enqueue_style('badaddy-registration', plugin_dir_url(__FILE__) . 'css/badaddy.css', array( 'style' ), '1.3.5' );
+	wp_enqueue_script('badaddy-registration', plugin_dir_url(__FILE__) . 'javascript/badaddy-registration.js', array( 'jquery' ), '1.3.5', true );
 }
 add_action('wp_enqueue_scripts', 'cr_enqueue', 15 );

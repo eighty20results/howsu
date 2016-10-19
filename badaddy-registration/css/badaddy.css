@@ -1,10 +1,14 @@
 form#howsu-registration-form {
-    width: 100% !important;
+    width: 60% !important;
     min-width: 320px;
+    margin: 0 auto;
 }
 table.howsu-registration-table {
     width: 100% !important;
     min-width: 320px;
+}
+table.howsu-registration-table td {
+    border: none;
 }
 label.howsu-reg-label {
     font-size: 0.9rem;
