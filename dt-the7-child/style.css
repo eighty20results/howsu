@@ -5,7 +5,7 @@
  Author: Thomas Sjolshagen - Eighty / 20 Results <thomas@eighty20results.com>
  Author URI: https://eighty20results.com/thomas-sjolshagen/
  Template:     dt-the7
- Version:      1.0.0
+ Version:      1.1
  Tags: one-column, two-columns, right-sidebar, flexible-width, custom-menu, editor-style, featured-images, post-formats, rtl-language-support, sticky-post, translation-ready
  License:      GNU General Public License v2 or later
  License URI:  http://www.gnu.org/licenses/gpl-2.0.html
@@ -413,7 +413,6 @@ p#pmpro_checkout_box-service-information {
 @media only screen and (max-width: 650px)  {
     .how-it-works-large {display: none; }
 }
-
 #pmpro_pricing_fields {
     width:100%!important;
 }
@@ -423,7 +422,8 @@ p#pmpro_checkout_box-service-information {
 .logo-left .main-nav > li > a {
     vertical-align: baseline;
 }
-ul.main-nav > li > a {
+ul.main-nav > li > a,
+button.e20r-pdb-pause-button {
     background-color: #BC1822;
     border-radius: 5px;
     padding: 17px;
@@ -432,13 +432,15 @@ ul.main-nav > li > a {
     color: #FFF !important;
     border-width: 3px;
 }
-.main-nav > li:not(.act) > a:hover .menu-text {
+.main-nav > li:not(.act) > a:hover .menu-text,
+button.e20r-pdb-pause-button:hover {
     color: #333 !important;
 }
 .main-nav > li > a .menu-text {
     color: #FFF !important;
 }
-ul.main-nav > li > a:hover {
+ul.main-nav > li > a:hover,
+button.e20r-pdb-pause-button:hover {
     background-color: #ffffff;
     border-radius: 5px;
     padding: 17px;
@@ -468,6 +470,9 @@ ul.main-nav > li > a:hover {
     -moz-align-content: center  !important;
     -ms-align-content: center  !important;
     align-content: center  !important;
+}
+ {
+
 }
 /*
 #eModal-2,  #eModal-1{
