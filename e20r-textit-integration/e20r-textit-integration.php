@@ -781,7 +781,7 @@ class e20rTextitIntegration {
 		global $wpdb;
 
 		if ( WP_DEBUG ) {
-			error_log( "Updating {$this->table} record for {$user_id}: " . print_r( $record, true ) . print_r( $where ) );
+			error_log( "Updating {$this->table} record for {$user_id}: " . print_r( $record, true ) . print_r( $where, true ) );
 		}
 
 		// Process $record
@@ -807,7 +807,7 @@ class e20rTextitIntegration {
 		global $wpdb;
 
 		if ( WP_DEBUG ) {
-			error_log( "Deleting {$this->table} record for {$user_id}: " .  print_r( $where ) );
+			error_log( "Deleting {$this->table} record for {$user_id}: " .  print_r( $where, true ) );
 		}
 
 		// Process $record
