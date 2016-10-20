@@ -17,7 +17,7 @@
 global $current_user;
 
 if ( WP_DEBUG ) {
-	error_log( "Loading serviceDetail data for user ID: {$current_user->ID} - {$_REQUEST['pdb']}" );
+	error_log( "Loading serviceDetail data for user ID: {$current_user->ID}, record: {$_REQUEST['pdb']}" );
 }
 
 // Show error messages/warnings
@@ -29,29 +29,34 @@ $record = new PDb_Template( $this );
 
 // Get TextIt Integration information
 // FIXME: Redudnant. The service_level info should be included in the record??
-// $ti        = e20rTextitIntegration::get_instance();
+
 // $user_info = $ti->getUserRecord( $current_user->ID, true );
 
-// $level = $ti->_process_text( $user_info->service_level );
-if (empty($level) ) { $level = $record->record->service->fields->service_level->value; }
+//
+if ( empty($level) ) {
+	$ti        = e20rTextitIntegration::get_instance();
+	$level = $ti->_process_text( $record->record->service->fields->service_level->value );
+}
+
+if (WP_DEBUG) {
+	error_log("serviceLevel has level: {$level}");
+}
 
 ?>
-<style>
-	.edit {
-		display: none !important
-	}
-</style>
-<div class="wrap <?php echo $this->wrap_class ?>">
+<div class="wrap <?php echo $this->wrap_class; ?>">
 	<?php wp_nonce_field('e20r_pdb_update', 'e20r-pdb-nonce'); ?>
 	<?php while ( $this->have_groups() ) : $this->the_group(); ?>
 
-		<?php while ( $this->have_fields() ) : $this->the_field() ?>
+		<?php while ( $this->have_fields() ) {
+			$this->the_field();
 
+			?>
 			<?php if ( $this->group->name == "service" ) { ?>
 				<table>
 					<?php
 
 					if ( $level == 'protector' && $this->field->name != "time_window_2" && $this->field->name != "time_window_3" ||
+					     $level == 'weekendspecial' && $this->field->name != "time_window_2" && $this->field->name != "time_window_3" ||
 					     $level == 'weekend' && $this->field->name != "time_window_2" && $this->field->name != "time_window_3" ||
 					     $level == 'guardian' && $this->field->name != "time_window_3" ||
 					     $level == 'guardianangel'
@@ -82,7 +87,13 @@ if (empty($level) ) { $level = $record->record->service->fields->service_level->
 					<?php } ?>
 				</table>
 			<?php } ?>
-		<?php endwhile; // end of the fields loop ?>
+		<?php } // end of the fields loop ?>
 	<?php endwhile; // end of the groups loop ?>
 </div>
+	<style type="text/css">
+		.edit {
+			display: none !important
+		}
+	</style>
+
 <?php //var_dump( $record->fields->service_number->value); ?>

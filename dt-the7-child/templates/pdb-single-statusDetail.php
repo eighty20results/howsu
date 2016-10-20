@@ -12,7 +12,10 @@
  * single record template
  */
 global $wpdb, $current_user;
-error_log( "Loading StatusDetail data for user ID: {$current_user->ID}" );
+
+if ( WP_DEBUG ) {
+    error_log( "Loading StatusDetail data for user ID: {$current_user->ID} and record: {$_REQUEST['pdb']}" );
+}
 
 // get the template object for this record
 $record = new PDb_Template($this);
@@ -62,27 +65,27 @@ $util->display_notice();
                 <td width="50%"><strong>Service Status:</strong></td>
                 <form action="" method="post">
                     <?php if ($statusCode == 1) { ?>
-                        <td width="25%"><img src="<?php echo get_template_directory_uri()  . '/images/greenDot.png' ?>" width="25"
+                        <td width="25%"><img src="<?php echo get_stylesheet_directory_uri()  . '/images/greenDot.jpg' ?>" width="25"
                                              height="25"/></td><input
                             type="hidden" name="status" value="1"/>
                         <td width="25%">
                         <?php if ($current_user->membership_level->subscription_id && $statusCode) { ?>
-                            <button type="submit" style="width: 150px !important">Pause</button>
+                            <button type="submit" class="e20r-pdb-pause-button" style="width: 150px !important">Pause</button>
                         <?php } ?>
                         </td>
                     <?php } else { ?>
-                        <td width="25%"><img src="<?php echo get_template_directory_uri()  . '/images/redDot.png'; ?>" width="25" height="25"/>
+                        <td width="25%"><img src="<?php echo get_stylesheet_directory_uri()  . '/images/redDot.jpg'; ?>" width="25" height="25"/>
                         </td>
                         <td width="25%"><input type="hidden" name="status" value="2"/>
                         <?php if ($current_user->membership_level->subscription_id && $statusCode) { ?>
-                            <button type="submit" style="width: 150px !important">Start</button>
+                            <button type="submit" class="e20r-pdb-pause-button" style="width: 150px !important">Start</button>
                         <?php } ?>
                         </td><?php } ?>
                 </form>
             </tr>
             <tr>
                 <td width="40%"><strong>Service Level:</strong></td>
-                <td><?php if ($current_user->membership_level->subscription_id) {
+                <td><?php if ( isset( $current_user->membership_level->subscription_id ) ) {
                         echo $record->record->service->fields->service_level->value;
                     } else {
                         echo 'Free';
@@ -104,21 +107,21 @@ $util->display_notice();
                     <tr>
                         <td width="40%"><strong>Time Window:</strong></td>
                         <td><?php echo $record->record->service->fields->time_window->value ?></td>
-                        <td><a class="button" href="/?page_id=563&pdb=<?php echo $user_info->id ?>"
+                        <td><a class="button" href="<?php echo add_query_arg( 'pdb', $user_info->id, site_url( '/membership-upgrade/' ) ); ?>"
                                name="level">Change</a>
                         </td>
                     </tr>
                     <tr>
                         <td width="40%"><strong>Time Window (Second):</strong></td>
                         <td><?php echo $record->record->service->fields->time_window_2->value ?></td>
-                        <td><a class="button" href="/?page_id=563&pdb=<?php echo $user_info->id ?>"
+                        <td><a class="button" href="<?php echo add_query_arg( 'pdb', $user_info->id, site_url( '/membership-upgrade/' ) ); ?>"
                                name="level">Change</a>
                         </td>
                     </tr>
                     <tr>
                         <td width="40%"><strong>Time Window (Third):</strong></td>
                         <td><?php echo $record->record->service->fields->time_window_3->value ?></td>
-                        <td><a class="button" href="/?page_id=563&pdb=<?php echo $user_info->id ?>"
+                        <td><a class="button" href="<?php echo add_query_arg( 'pdb', $user_info->id, site_url( '/membership-upgrade/' ) ); ?>"
                                name="level">Change</a>
                         </td>
                     </tr>
@@ -127,14 +130,14 @@ $util->display_notice();
                     <tr>
                         <td width="40%"><strong>Time Window:</strong></td>
                         <td><?php echo $record->record->service->fields->time_window->value ?></td>
-                        <td><a class="button" href="/?page_id=563&pdb=<?php echo $user_info->id ?>"
+                        <td><a class="button" href="<?php echo add_query_arg( 'pdb', $user_info->id, site_url( '/membership-upgrade/' ) ); ?>"
                                name="level">Change</a>
                         </td>
                     </tr>
                     <tr>
                         <td width="40%"><strong>Time Window (Second):</strong></td>
                         <td><?php echo $record->record->service->fields->time_window_2->value ?></td>
-                        <td><a class="button" href="/?page_id=563&pdb=<?php echo $user_info->id ?>"
+                        <td><a class="button" href="<?php echo add_query_arg( 'pdb', $user_info->id, site_url( '/membership-upgrade/' ) ); ?>"
                                name="level">Change</a>
                         </td>
                     </tr>
@@ -143,7 +146,7 @@ $util->display_notice();
                     <tr>
                         <td width="40%"><strong>Time Window:</strong></td>
                         <td><?php echo $record->record->service->fields->time_window->value ?></td>
-                        <td><a class="button" href="/?page_id=563&pdb=<?php echo $user_info->id ?>"
+                        <td><a class="button" href="<?php echo add_query_arg( 'pdb', $user_info->id, site_url( '/membership-upgrade/' ) ); ?>"
                                name="level">Change</a>
                         </td>
                     </tr>
