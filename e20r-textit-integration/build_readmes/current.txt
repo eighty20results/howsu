@@ -1,1 +1,1 @@
-ENH/BUG: Didn't always handle empty data properly in shortcodes
+ENH/BUG: Add the edit-my-details page stub as valid pdb page

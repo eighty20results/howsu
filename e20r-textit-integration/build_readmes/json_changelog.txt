@@ -1,1 +1,1 @@
-<h3>1.4.3</h3><ol><li>Force discount code field to be visible in Credit Card payment section</li></ol>
+<h3>1.1.4</h3><ol><li>ENH/BUG: Add the edit-my-details page stub as valid pdb page</li></ol>

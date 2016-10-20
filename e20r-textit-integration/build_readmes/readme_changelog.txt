@@ -1,2 +1,4 @@
-== 1.4.3 ==
-* Force discount code field to be visible in Credit Card payment section
+== 1.1.4 ==
+
+* ENH/BUG: Add the edit-my-details page stub as valid pdb page
+
