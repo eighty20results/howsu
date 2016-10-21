@@ -14,9 +14,10 @@
  * @since 1.4 - Use page slugs instead of page IDs (transitioning to being able to configure on an option page), remove unneeded code
  * @since 1.5 - Fix redirect loop
  * @since 1.6 - Renamed shortcodes
+ * @since 1.7 - Renamed functions and created a custom menu 'shortcode' to trigger logou (#howsu_logout#)
  */
 
-function badaddy_verify_user( $user, $username, $password ) {
+function e20r_verify_user( $user, $username, $password ) {
 
 	/* page_id = 975 - /login/ */
 	$login_page = add_query_arg( array( 'login' => 'empty' ), home_url( '/login/' ) );
@@ -28,10 +29,10 @@ function badaddy_verify_user( $user, $username, $password ) {
 	}
 }
 
-add_action( 'authenticate', 'badaddy_verify_user', 1, 3);  // hook failed login
+add_action( 'authenticate', 'e20r_verify_user', 1, 3);  // hook failed login
 
 
-function badaddy_auth_failure() {
+function e20r_auth_failure() {
 
 	$login_page = add_query_arg( array( 'login' => 'failed' ), home_url( '/login/') );
 
@@ -39,9 +40,9 @@ function badaddy_auth_failure() {
 	exit;
 }
 
-add_action( 'wp_login_failed', 'badaddy_auth_failure', 10 );
+add_action( 'wp_login_failed', 'e20r_auth_failure', 10 );
 
-function badaddy_redirect_to_custom() {
+function e20r_redirect_to_custom() {
 
 	$login_page = add_query_arg( array( 'login' => null ), home_url( '/login/' ) );
 	$page_viewed = basename($_SERVER['REQUEST_URI']);
@@ -55,10 +56,10 @@ function badaddy_redirect_to_custom() {
 		exit;
 	}
 }
-add_action( 'template_redirect', 'badaddy_redirect_to_custom' );
+add_action( 'template_redirect', 'e20r_redirect_to_custom' );
 
 // The callback function for the [cr] shortcode
-function badaddy_login($atts)
+function e20r_login($atts)
 {
 	global $wpdb;
 	global $current_user;
@@ -142,12 +143,25 @@ function badaddy_login($atts)
 	</div>
 	<?php
 }
-add_shortcode('howsu_login', 'badaddy_login');
+add_shortcode('howsu_login', 'e20r_login');
 
-function badaddy_logout() {
-	wp_logout();
-	wp_safe_redirect( site_url() );
-	exit;
+function e20r_logout() {
+	return null;
 }
 
-add_shortcode('howsu_logout', 'badaddy_logout');
+add_shortcode('howsu_logout', 'e20r_logout');
+
+function e20r_dynamic_menu_items( $menu_items ) {
+
+	foreach ( $menu_items as $menu_item ) {
+
+		if ( '#howsu_logout#' === $menu_item->url ) {
+
+			$menu_item->url = wp_logout_url( site_url() );
+		}
+	}
+
+	return $menu_items;
+}
+add_filter( 'wp_nav_menu_objects', 'e20r_dynamic_menu_items' );
+
