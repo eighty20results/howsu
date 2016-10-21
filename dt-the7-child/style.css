@@ -5,7 +5,7 @@
  Author: Thomas Sjolshagen - Eighty / 20 Results <thomas@eighty20results.com>
  Author URI: https://eighty20results.com/thomas-sjolshagen/
  Template:     dt-the7
- Version:      1.2
+ Version:      1.2.1
  Tags: one-column, two-columns, right-sidebar, flexible-width, custom-menu, editor-style, featured-images, post-formats, rtl-language-support, sticky-post, translation-ready
  License:      GNU General Public License v2 or later
  License URI:  http://www.gnu.org/licenses/gpl-2.0.html
@@ -38,45 +38,41 @@ div#pmpro_account-profile a[href*="page_id=577"] {
 {
     display: none;
 }
-
-
 .wp-caption-text,
 .sticky,
 .gallery-caption,
 .bypostauthor {}
-
 .login-page-bg {
     background-color:#193356;
     padding-bottom:20px;
 }
-
 #theme-my-login.login label[for="user_login"] {
     color: #333333!important;
 }
-
 #theme-my-login.login label[for="user_pass"] {
     color: #333333!important;
 }
-
 .pmpro_submit {
     margin-bottom: 40px!important;
 }
-
-.blue-menu * {
-    background-color: #193356!important;
-    border-color: #193356!important;
-    border-width: 3px;
-    color: #ffffff!important;
+.blue-menu:hover,
+.blue-menu > a:hover,
+.blue-menu span.menu-text:hover,
+.blue-menu > a > span.menu-item-text:hover {
+    background-color: #FFF !important;
 }
-
+.blue-menu * {
+    background-color: #193356 !important;
+    border-color: #193356 !important;
+    border-width: 3px;
+    color: #ffffff !important;
+}
 .blue-menu span::before {
     background-color: #ffffff!important;
 }
-
 #main-nav > li {
     margin: 0px 0px !important;
 }
-
 #main-nav > li > a {
     background-color: #BC1822;
     border-radius: 5px;
@@ -85,15 +81,6 @@ div#pmpro_account-profile a[href*="page_id=577"] {
     border-color: #BC1822;
     color: #FFF;
     border-width: 3px;
-}
-.blue-menu:hover {
-    background-color: #FFF !important;
-}
-.blue-menu > a:hover {
-    background-color: #FFF !important;
-}
-.blue-menu span.menu-text:hover {
-    background-color: #FFF !important;
 }
 #main-nav > li > a:hover {
     background-color: #ffffff;
@@ -104,7 +91,6 @@ div#pmpro_account-profile a[href*="page_id=577"] {
     color: #333333;
     border-width: 3px;
 }
-
 #main-nav > li.act > a {
     background-color: #ffffff;
     border-radius: 5px;
@@ -113,7 +99,6 @@ div#pmpro_account-profile a[href*="page_id=577"] {
     border-color: #BC1822;
     border-width: 3px;
 }
-
 #your-profile label[for="third-contact-heading"] {
     margin-left: -10px;
     margin-top: -30px;
@@ -446,6 +431,7 @@ button.e20r-pdb-pause-button {
 .main-nav > li:not(.act) > a:hover .menu-text,
 button.e20r-pdb-pause-button:hover {
     color: #333 !important;
+    background-color: #FFF !important;
 }
 .main-nav > li > a .menu-text {
     color: #FFF !important;
