@@ -5,7 +5,7 @@
  Author: Thomas Sjolshagen - Eighty / 20 Results <thomas@eighty20results.com>
  Author URI: https://eighty20results.com/thomas-sjolshagen/
  Template:     dt-the7
- Version:      1.1
+ Version:      1.2
  Tags: one-column, two-columns, right-sidebar, flexible-width, custom-menu, editor-style, featured-images, post-formats, rtl-language-support, sticky-post, translation-ready
  License:      GNU General Public License v2 or later
  License URI:  http://www.gnu.org/licenses/gpl-2.0.html
@@ -86,7 +86,15 @@ div#pmpro_account-profile a[href*="page_id=577"] {
     color: #FFF;
     border-width: 3px;
 }
-
+.blue-menu:hover {
+    background-color: #FFF !important;
+}
+.blue-menu > a:hover {
+    background-color: #FFF !important;
+}
+.blue-menu span.menu-text:hover {
+    background-color: #FFF !important;
+}
 #main-nav > li > a:hover {
     background-color: #ffffff;
     border-radius: 5px;
@@ -421,6 +429,9 @@ p#pmpro_checkout_box-service-information {
 }
 .logo-left .main-nav > li > a {
     vertical-align: baseline;
+}
+.l-to-r-line > li > a i.underline {
+    bottom: 0! important;
 }
 ul.main-nav > li > a,
 button.e20r-pdb-pause-button {
