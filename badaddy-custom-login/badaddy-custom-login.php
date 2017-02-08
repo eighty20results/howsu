@@ -2,7 +2,7 @@
 /*
   Plugin Name: Custom Login page for How's U?
   Description: Custom WP Login for Howsu..
-  Version: 1.6
+  Version: 1.8
   Author: Thomas Sjolshagen <thomas@eighty20results.com>
   Author URI: https://eighty20results.com/thomas-sjolshagen
  */
@@ -15,6 +15,7 @@
  * @since 1.5 - Fix redirect loop
  * @since 1.6 - Renamed shortcodes
  * @since 1.7 - Renamed functions and created a custom menu 'shortcode' to trigger logou (#howsu_logout#)
+ * @since 1.8 - Fixed access to participants_database table (bad prefix)
  */
 
 function e20r_verify_user( $user, $username, $password ) {
@@ -70,7 +71,7 @@ function e20r_login($atts)
 		$wpdb->prepare(
 			"
 			SELECT * 
-			FROM xwdi_participants_database 
+			FROM {$wpdb->prefix}participants_database 
 			WHERE user_id = %s 
 			ORDER BY id DESC 
 			LIMIT 1
