@@ -1217,7 +1217,7 @@ class e20rTextitIntegration {
 //  *********************   Load new contact onto TextIt ***********************************
 
 		$groupArray = array();
-		$myrows     = $wpdb->get_results( "SELECT * FROM xwdi_participants_database WHERE Id = " . $_POST['pdb'] );
+		$myrows     = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}participants_database WHERE Id = " . $_POST['pdb'] );
 
 		$_SESSION['TextIt_UserDetail'] = $myrows;
 
