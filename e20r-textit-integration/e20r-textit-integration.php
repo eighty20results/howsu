@@ -1694,7 +1694,7 @@ class e20rTextitIntegration {
 	}
 	
 	public function enqueueOptionStyles() {
-	    wp_enqueue_style( 'e20r-textit-options', plugins_url( 'css/e20r-textit-admin-options.css', __FILE__ ), null );
+	    wp_enqueue_style( 'e20r-textit-options', plugins_url( 'css/e20r-textit-admin-options.css', __FILE__ ), null, E20RTEXTIT_VER );
     }
     
 	/**
