@@ -78,7 +78,7 @@ class e20rTextitIntegration {
 	
 	private $settings;
 	
-	private $settings_name = 'e20r_textit';
+	private $settings_name = 'e20r_textit_options';
 	
 	/**
 	 * e20rTextitIntegration constructor.
@@ -718,7 +718,7 @@ class e20rTextitIntegration {
 		);
 		*/
 		
-		return $this->loadOptions( 'service_mappings' );
+		return $this->loadSettings( 'service_mappings' );
 	}
 	
 	/**
@@ -732,24 +732,28 @@ class e20rTextitIntegration {
 	 * @access public
 	 */
 	public function validateSettings( $input ) {
-		
-		$defaults = $this->defaultSettings();
-		
-		if ( WP_DEBUG ) {
-			error_log( "Input for validation: " . print_r( $input, true ) );
+  
+		if ( isset( $input['service_mappings'] ) ) {
+			return $input;
 		}
-		foreach ( $defaults as $key => $value ) {
+  
+		// Base our settings off of the defaults
+		$this->settings = $this->defaultSettings();
+  
+		// Update the database table to use for the service
+		if ( isset( $input['user_database'] ) && !empty( $input['user_database'])) {
+			$this->settings['user_database'] = $input['user_database'];
+        }
+        
+        // Process all defined services & set their flow & group IDs (if applicable)
+		foreach ( $input['servicekey'] as $key => $name ) {
 			
-			if ( isset( $input[ $key ] ) ) {
-				$this->settings[ $key ] = $input[ $key ];
-			} else {
-				$this->settings[ $key ] = $defaults[ $key ];
-			}
+			$this->settings['service_mappings'][$name]['flow_id'] = ( empty( $input['flow_id'][$key] ) ? '' : $input['flow_id'][$key] );
+			$this->settings['service_mappings'][$name]['group_uuid'] = ( empty( $input['group_uuid'][$key] ) ? '' : $input['group_uuid'][$key] );
 		}
-		
+  
 		// Validated & updated settings
-		// return $this->settings;
-		return $input;
+		return $this->settings;
 	}
 	
 	/**
@@ -776,24 +780,29 @@ class e20rTextitIntegration {
 				case 'TEL':
 					$default_service_mappings[ $service ]['group_uuid'] = '607571ed-125c-432c-a2dc-ebf93539357a';
 					$default_service_mappings[ $service ]['flow_id']    = '81b71a38-aec2-4f71-adb1-cfecd3b4d5ba';
-                    break;
-                case 'SMS':
-	                $default_service_mappings[ $service ]['group_uuid'] = '607571ed-125c-432c-a2dc-ebf93539357a';
-	                $default_service_mappings[ $service ]['flow_id']    = '';
-                    break;
-                case 'FBM':
-	                $default_service_mappings[ $service ]['group_uuid'] = '607571ed-125c-432c-a2dc-ebf93539357a';
-	                $default_service_mappings[ $service ]['flow_id']    = '';
-                    break;
-                default:
-                    if ( $service === 'welcomemessage' ) {
-	                    $default_service_mappings[ $service ]['group_uuid'] = '607571ed-125c-432c-a2dc-ebf93539357a';
-	                    $default_service_mappings[ $service ]['flow_id']    = '63c42285-f938-4528-9274-40419028d5db';
-                    }
+					break;
+				case 'SMS':
+					$default_service_mappings[ $service ]['group_uuid'] = '607571ed-125c-432c-a2dc-ebf93539357a';
+					$default_service_mappings[ $service ]['flow_id']    = '';
+					break;
+				case 'FBM':
+					$default_service_mappings[ $service ]['group_uuid'] = '607571ed-125c-432c-a2dc-ebf93539357a';
+					$default_service_mappings[ $service ]['flow_id']    = '';
+					break;
+				default:
+					if ( $service === 'welcomemessage' ) {
+						$default_service_mappings[ $service ]['group_uuid'] = '607571ed-125c-432c-a2dc-ebf93539357a';
+						$default_service_mappings[ $service ]['flow_id']    = '63c42285-f938-4528-9274-40419028d5db';
+					}
 			}
 		}
 		
-		return array( 'service_mappings' => $default_service_mappings );
+		$settings = array(
+			'user_database'    => 'participants_database',
+			'service_mappings' => $default_service_mappings,
+		);
+		
+		return $settings;
 	}
 	
 	/**
@@ -817,8 +826,11 @@ class e20rTextitIntegration {
         <div class="e20r-textit-settings">
             <div class="wrap">
                 <h2 class="e20r-textit-settings"><?php _e( 'HowsU Settings', "e20r-textit-integration" ); ?></h2>
-                <p class="e20r-roles-for-pmpro-settings">
+                <p class="e20r-textit-settings">
 					<?php _e( "Configure TextIt services for HowsU", "e20r-textit-integration" ); ?>
+                </p>
+                <p class="e20r-textit-refresh">
+                    <button class="e20r-textit-fetch button-primary"><?php _e( 'Refresh Groups/Flows from TextIt Server' ); ?></button>
                 </p>
                 <form method="post" action="options.php">
 					<?php settings_fields( 'e20r_textit_options' ); ?>
@@ -841,8 +853,24 @@ class e20rTextitIntegration {
 		register_setting( "e20r_textit_options", $this->settings_name, array( $this, 'validateSettings' ) );
 		
 		add_settings_section(
+			'e20r_textit_db',
+			__( "Database", "e20r-textit-integration" ),
+			array( $this, 'renderDBSelection' ),
+			'e20r-textit'
+		);
+		
+		add_settings_field(
+			'e20r_textit_flows',
+			__( "User data source", "e20r-textit-integration" ),
+			array( $this, 'renderDBSelect' ),
+			'e20r-textit',
+			'e20r_textit_db',
+			array( 'option_name' => 'user_database' )
+		);
+		
+		add_settings_section(
 			'e20r_textit_flowmap',
-			__( "HowsU: Service Settings", 'e20r-textit-integration' ),
+			__( "Service Settings", 'e20r-textit-integration' ),
 			array( $this, 'renderFlowMapSection' ),
 			'e20r-textit'
 		);
@@ -857,12 +885,53 @@ class e20rTextitIntegration {
 		);
 	}
 	
+	/**
+     * Generate listing of user Database settings for HowsU/TextIt service
+     *
+	 * @param array $settings
+	 */
+	public function renderDBSelect( $settings ) {
+	 
+		$user_db_table = $this->loadSettings( $settings['option_name'] );
+		$tables        = $this->getDBTables();
+		?>
+        <div class="e20r-textit-service">
+            <div class="e20r-textit-service-row">
+                <label for="e20r_textit_service-flow-user_database"><?php __( "HowsU record store for users", "e20r-textit-integration" ) ?></label>
+                <select name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]" id="e20r_textit_service-flow-user_database">
+                    <option value="" <?php selected( '', $user_db_table ) ?>><?php _e( "Not Configured", "e20r-textit-integration" ); ?></option>
+					<?php
+					foreach ( $tables as $table_name ) { ?>
+                        <option value="<?php esc_attr_e( $table_name ); ?>" <?php selected( $table_name, $user_db_table ); ?>><?php esc_attr_e( $table_name ); ?></option>
+						<?php
+					}
+					?>
+                </select>
+            </div>
+        </div>
+		<?php
+	}
+	
+	/**
+	 * Description for the Flow/Group settings by service
+	 */
 	public function renderFlowMapSection() {
 		?>
         <p class="e20r-textit-settings-text">
-			<?php _e( "Configure Flow and Group for services", "e20r-textit-integration" ); ?>
+			<?php // _e( "Configure Flow and Group for services", "e20r-textit-integration" ); ?>
         </p>
 		<?php
+	}
+	
+	/**
+	 * Description for Database settings
+	 */
+	public function renderDBSelection() {
+		?>
+        <p class="e20r-textit-settings-text">
+        </p>
+		<?php
+		
 	}
 	
 	/**
@@ -872,12 +941,16 @@ class e20rTextitIntegration {
 	 */
 	public function renderFlowMaps( $settings ) {
 		
-		$services = $this->loadOptions( $settings['option_name'] );
+		$services = $this->loadSettings( $settings['option_name'] );
+		
+		if ( WP_DEBUG ) {
+			error_log( "Found " . count( $services ) . " configurable services for {$settings['option_name']}" );
+		}
 		
 		if ( ! empty( $services ) ) {
 			
-			$upstream = $this->getFlows();
-			$groups   = $this->getGroups();
+			$upstream = $this->getFlows( false );
+			$groups   = $this->getGroups( false );
 			
 			foreach ( $services as $s_key => $config ) {
 				$this->renderServiceEntry( $s_key, $config, $upstream, $groups );
@@ -896,22 +969,27 @@ class e20rTextitIntegration {
 	private function renderServiceEntry( $serviceKey, $settings, $upstream_flows, $groups ) {
 		
 		printf( '<div class="e20r-textit-service">' );
-		printf( '<h3 class="e20r-textit-service-name">%1$s</h3>', $settings['label'] );
-		printf( '<div class="e20r-textit-service-row"><label for="e20r_textit_service-flow-%1$s">%2$s</label>', $serviceKey, __( "Flow", "e20r-textit-integration" ) );
-		printf( '<select name="e20r_textit_service-flow_id" id="e20r_textit_service-flow-%1$s">', $serviceKey );
-		printf( '<option value="">%1$s</option>', __( "None", "e20r-textit-integration" ) );
+		printf( '    <h3 class="e20r-textit-service-name">%1$s</h3>', $settings['label'] );
+		printf( '    <input type="hidden" name="%1$s" value="%2$s">', "{$this->settings_name}[servicekey][]",$serviceKey );
+		printf( '    <div class="e20r-textit-service-row">' );
+		printf( '        <label for="e20r_textit_service-flow-%1$s">%2$s</label>', $serviceKey, __( "Flow", "e20r-textit-integration" ) );
+		printf( '        <select name="%1$s" id="e20r_textit_service-flow-%2$s">', "{$this->settings_name}[flow_id][]", $serviceKey );
+		printf( '            <option value="">%1$s</option>', __( "None", "e20r-textit-integration" ) );
 		foreach ( $upstream_flows as $flow ) {
-			printf( '<option value="%1$s" %2$s>%3$s (%4$s)</option>', $flow->uuid, selected( $flow->uuid, $settings['flow_id'] ), $flow->name, date_i18n( 'Y-m-d', strtotime( $flow->created_on, current_time( 'timestamp' ) ) ) );
+			printf( '            <option value="%1$s" %2$s>%3$s (%4$s)</option>', $flow->uuid, selected( $flow->uuid, $settings['flow_id'] ), $flow->name, date_i18n( 'Y-m-d', strtotime( $flow->created_on, current_time( 'timestamp' ) ) ) );
 		}
-		printf( '</select></div>' );
+		printf( '        </select>' );
+		printf( '    </div>' );
 		
-		printf( '<div class="e20r-textit-service-row"><label for="e20r_textit_service-group-%1$s">%2$s</label>', $serviceKey, __( "Group", "e20r-textit-integration" ) );
-		printf( '<select name="e20r_textit_service-group_uuid" id="e20r_textit_service-group-%1$s">', $serviceKey );
-		printf( '<option value="">%1$s</option>', __( "None", "e20r-textit-integration" ) );
+		printf( '    <div class="e20r-textit-service-row">' );
+		printf( '        <label for="e20r_textit_service-group-%1$s">%2$s</label>', $serviceKey, __( "Group", "e20r-textit-integration" ) );
+		printf( '        <select name="%1$s" id="e20r_textit_service-group-%2$s">', "{$this->settings_name}[group_uuid][]", $serviceKey );
+		printf( '            <option value="">%1$s</option>', __( "None", "e20r-textit-integration" ) );
 		foreach ( $groups as $group ) {
-			printf( '<option value="%1$s" %2$s>%3$s</option>', $group->uuid, selected( $group->uuid, $settings['group_uuid'] ), $group->name );
+			printf( '            <option value="%1$s" %2$s>%3$s</option>', $group->uuid, selected( $group->uuid, $settings['group_uuid'] ), $group->name );
 		}
-		printf( '</select></div>' );
+		printf( '        </select>' );
+		printf( '    </div>' );
 		
 		printf( '</div>' );
 	}
@@ -948,16 +1026,33 @@ class e20rTextitIntegration {
 	}
 	
 	/**
+	 * Connect with TextIt API server & refresh the group and flow list on this server
+	 */
+	public function ajaxRefreshTextit() {
+		
+		if ( WP_DEBUG ) {
+			error_log( "Running action: " . print_r( $_REQUEST, true ) );
+		}
+		
+		$this->getFlows( true );
+		$this->getGroups( true );
+	}
+	
+	/**
 	 * Load settings/options for the plugin
 	 *
 	 * @param $option_name
 	 *
 	 * @return bool|mixed
 	 */
-	public function loadOptions( $option_name ) {
+	public function loadSettings( $option_name ) {
+  
+		$this->settings = get_option( "{$this->settings_name}", false );
 		
-		$this->settings = get_option( "{$this->settings_name}", $this->defaultSettings() );
-		
+	    if ( empty( $this->settings ) ) {
+	        $this->settings = $this->defaultSettings();
+        }
+        
 		if ( isset( $this->settings[ $option_name ] ) && ! empty( $this->settings[ $option_name ] ) ) {
 			
 			return $this->settings[ $option_name ];
@@ -969,36 +1064,94 @@ class e20rTextitIntegration {
 	/**
 	 * Load and return all flows from the upstream TextIt server
 	 *
+	 * @param bool $force
+	 *
 	 * @return array
 	 */
-	private function getFlows() {
+	private function getFlows( $force = false ) {
 		
-		$flows  = $this->updateTextItService( array(), 'flows.json', 'GET' );
-		$active = array();
+		$active = get_option( 'e20r_textit_flows', false );
 		
-		foreach ( $flows as $flow ) {
+		if ( true === $force || empty( $active ) ) {
 			
-			$data             = new stdClass();
-			$data->uuid       = $flow->uuid;
-			$data->name       = $flow->name;
-			$data->created_on = $flow->created_on;
+			if ( WP_DEBUG ) {
+				error_log( "Forcing load from TextIt Service for Flows" );
+			}
 			
-			$active[] = $data;
+			$flows = $this->updateTextItService( array(), 'flows.json', 'GET' );
+			
+			$active = array();
+			
+			foreach ( $flows as $flow ) {
+				
+				$data             = new stdClass();
+				$data->uuid       = $flow->uuid;
+				$data->name       = $flow->name;
+				$data->created_on = $flow->created_on;
+				
+				$active[] = $data;
+			}
+			
+			update_option( 'e20r_textit_flows', $active, false );
 		}
 		
+		if ( false === $active ) {
+			$active = array();
+		}
+		
+		if ( WP_DEBUG ) {
+		    error_log("Have " . count( $active ) . " flows");
+        }
 		return $active;
 	}
 	
 	/**
 	 * Load and return all groups from the upstream TextIt server
 	 *
+     * @param bool $force
+     *
 	 * @return array
 	 */
-	private function getGroups() {
+	private function getGroups( $force = false ) {
 		
-		$groups = $this->updateTextItService( array(), 'groups.json', 'GET' );
+		$groups = get_option( 'e20r_textit_groups', false );
+		
+		if ( true === $force || empty( $groups ) ) {
+			
+			if ( WP_DEBUG ) {
+				error_log( "Forcing load from TextIt Service for Groups" );
+			}
+			
+			$groups = $this->updateTextItService( array(), 'groups.json', 'GET' );
+			update_option( 'e20r_textit_groups', $groups, false );
+		}
+		
+		if ( WP_DEBUG ) {
+			error_log("Have " . count( $groups ) . " groups");
+		}
 		
 		return $groups;
+	}
+	
+	/**
+	 * Return a list of table names in the DB for this WordPress instance
+	 *
+	 * @return array
+	 */
+	private function getDBTables() {
+		
+		global $wpdb;
+		
+		$list        = $wpdb->get_results( 'SHOW TABLES' );
+		$table_list  = array();
+		$column_name = "Tables_in_" . DB_NAME;
+		
+		foreach ( $list as $record ) {
+			$table_name   = preg_replace( "/{$wpdb->prefix}/", '', $record->{$column_name} );
+			$table_list[] = $table_name;
+		}
+		
+		return $table_list;
 	}
 	
 	private function _getRoleName( $service_level ) {
@@ -1065,38 +1218,40 @@ class e20rTextitIntegration {
 		
 		// Make sure the table is configured
 		if ( empty( $this->table ) ) {
-			$this->setParticipantsTable( 'participants_database' );
+			$this->setParticipantsTable( $this->loadSettings('user_database' ) );
 		}
 		
 		if ( WP_DEBUG ) {
 			error_log( "Loading user info for {$user->user_email}... " );
 		}
 		
-		
-		$sql = $wpdb->prepare(
-			"
+		if ( ! empty( $this->table ) ) {
+			
+			$sql = $wpdb->prepare(
+				"
 		  SELECT ud.* 
 		  FROM {$this->table} AS ud
 		  WHERE ud.user_id = %s
 		  ORDER BY ud.id DESC",
-			$user->user_email
-		);
-		
-		$record = $wpdb->get_row( $sql );
-		
-		if ( ! empty( $record ) ) {
+				$user->user_email
+			);
 			
-			if ( WP_DEBUG ) {
-				error_log( "Found data for user..." . print_r( $record->id, true ) );
-			}
+			$record = $wpdb->get_row( $sql );
 			
-			// $_SESSION['TextIt_UserDetail'] = $record;
-			$this->userRecord = $record;
-			
-			return $record;
-		} else {
-			if ( WP_DEBUG ) {
-				error_log( "No data found for user {$user_id}" );
+			if ( ! empty( $record ) ) {
+				
+				if ( WP_DEBUG ) {
+					error_log( "Found data for user..." . print_r( $record->id, true ) );
+				}
+				
+				// $_SESSION['TextIt_UserDetail'] = $record;
+				$this->userRecord = $record;
+				
+				return $record;
+			} else {
+				if ( WP_DEBUG ) {
+					error_log( "No data found for user {$user_id}" );
+				}
 			}
 		}
 		
@@ -1640,7 +1795,7 @@ class e20rTextitIntegration {
 	public function loadHooks() {
 		
 		$this->util = e20rUtils::get_instance();
-		$this->setParticipantsTable( get_option( 'e20r_textit_table', 'participants_database' ) );
+		$this->setParticipantsTable( $this->loadSettings( 'user_database' ) );
 		
 		// Action hooks
 		add_action( 'pmpro_paypalexpress_session_vars', array( $this, 'setSessionVars' ), 10, 1 );
@@ -1663,8 +1818,10 @@ class e20rTextitIntegration {
 		add_action( 'wp_ajax_e20r_pdb_update', array( $this, 'ajaxUpdateDatabase' ) );
 		add_action( 'wp_ajax_e20r_pause_service', array( $this, 'ajaxPauseService' ) );
 		add_action( 'wp_ajax_e20r_start_service', array( $this, 'ajaxResumeService' ) );
+		add_action( 'wp_ajax_e20r_refresh_textit', array( $this, 'ajaxRefreshTextit' ) );
 		
 		add_action( 'admin_menu', array( $this, 'loadAdminSettingsPage' ), 10 );
+		
 		// add_action( 'admin_init', array( $this, 'registerSettingsPage' ), 10 );
 		
 		if ( ! empty ( $GLOBALS['pagenow'] )
@@ -1694,9 +1851,10 @@ class e20rTextitIntegration {
 	}
 	
 	public function enqueueOptionStyles() {
-	    wp_enqueue_style( 'e20r-textit-options', plugins_url( 'css/e20r-textit-admin-options.css', __FILE__ ), null, E20RTEXTIT_VER );
-    }
-    
+		wp_enqueue_style( 'e20r-textit-options', plugins_url( 'css/e20r-textit-admin-options.css', __FILE__ ), null, E20RTEXTIT_VER );
+		wp_enqueue_script( 'e20r-textit-options', plugins_url( 'js/e20r-textit-options.js', __FILE__ ), array( 'jquery' ), E20RTEXTIT_VER );
+	}
+	
 	/**
 	 * Plugin activation function: Configures required WordPress roles
 	 */
