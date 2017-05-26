@@ -223,7 +223,7 @@ strong {
 }
 
 form.pmpro_form label {
-    width: 90%!important;
+    /* width: 90%!important; */
     text-align: left!important;
     font-weight: normal!important;
     color: #111111;
