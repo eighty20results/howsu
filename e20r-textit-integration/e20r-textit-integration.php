@@ -3,9 +3,9 @@
 Plugin Name: E20R HowsU/Text-It Messaging Service integration
 Plugin URI: http://eighty20results.com/wordpress-plugins/e20r-textit-integration/
 Description: howsu.today website integration for the textit.in SMS/Voice messaging service
-Version: 1.1.4
-Requires: 4.5.3
-Tested: 4.6.1
+Version: 2.0
+Requires: 4.7
+Tested: 4.7.5
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
 Author URI: http://www.eighty20results.com/thomas-sjolshagen/
 License: GPL2
@@ -744,8 +744,12 @@ class e20rTextitIntegration {
 		
 		if ( $force === true || empty( $fields ) ) {
 			
-			$fields = $this->updateTextItService( null, 'fields.json', 'GET' );
-			$fields = update_option( 'e20r_textit_fields', $fields, false );
+			$data = $this->updateTextItService( null, 'fields.json', 'GET' );
+			$fields = isset( $data->results ) ? $data->results : array();
+			
+			if ( ! empty( $fields ) ) {
+				update_option( 'e20r_textit_fields', $fields, false );
+			}
 		}
 		
 		return $fields;
