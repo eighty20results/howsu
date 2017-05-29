@@ -22,8 +22,8 @@ h3.e20r-textit-service-name {
     clear: both;
 }
 .e20r-textit-service-row {
-    width: 400px;
-    max-width: 400px;
+    width: 100%;
+    max-width: 100%;
     margin-bottom: 15px;
 }
 .e20r-textit-service-row label {
@@ -38,5 +38,8 @@ h3.e20r-textit-service-name {
 }
 .e20r-textit-service-row select {
     max-width: 330px;
+    width: 330px;
+}
+input#e20r_textit_service-textit_key {
     width: 330px;
 }
