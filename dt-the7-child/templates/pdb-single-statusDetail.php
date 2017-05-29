@@ -40,15 +40,20 @@ if (!$current_user->membership_level->subscription_id) {
     switch( $status ) {
 
         case 1:
-            $ti->updateUserRecord( $current_user->ID, array('status' => 2), array('user_id' => $current_user->user_email) );
             $statusCode = 2;
-            $ti->pauseTextItService( $current_user->ID );
+            $status = $ti->pauseTextItService( $current_user->ID );
+	        
+            if ( $status !== false ) {
+		        $ti->updateUserRecord( $current_user->ID, array( 'status' => 2 ), array( 'user_id' => $current_user->user_email ) );
+	        }
             break;
 
         case 2:
-            $ti->updateUserRecord( $current_user->ID, array('status' => 1), array('user_id' => $current_user->user_email) );
             $statusCode = 1;
-            $ti->resumeTextItService( $current_user->ID );
+            $status = $ti->resumeTextItService( $current_user->ID );
+            if ( $status !== false ) {
+	            $ti->updateUserRecord( $current_user->ID, array( 'status' => 1 ), array( 'user_id' => $current_user->user_email ) );
+            }
             break;
 
         default:
