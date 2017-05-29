@@ -18,6 +18,11 @@
  *
  */
 
+if ( !is_user_logged_in() ) {
+	wp_redirect( wp_login_url() );
+	exit();
+}
+
 // Show error messages/warnings
 $util = e20rUtils::get_instance();
 $util->display_notice();

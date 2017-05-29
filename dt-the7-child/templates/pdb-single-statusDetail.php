@@ -13,6 +13,11 @@
  */
 global $wpdb, $current_user;
 
+if ( !is_user_logged_in() ) {
+    wp_redirect( wp_login_url() );
+    exit();
+}
+
 if ( WP_DEBUG ) {
     error_log( "Loading StatusDetail data for user ID: {$current_user->ID} and record: {$_REQUEST['pdb']}" );
 }
