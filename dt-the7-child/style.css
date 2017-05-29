@@ -5,7 +5,7 @@
  Author: Thomas Sjolshagen - Eighty / 20 Results <thomas@eighty20results.com>
  Author URI: https://eighty20results.com/thomas-sjolshagen/
  Template:     dt-the7
- Version:      1.2.1
+ Version:      2.0
  Tags: one-column, two-columns, right-sidebar, flexible-width, custom-menu, editor-style, featured-images, post-formats, rtl-language-support, sticky-post, translation-ready
  License:      GNU General Public License v2 or later
  License URI:  http://www.gnu.org/licenses/gpl-2.0.html
@@ -243,6 +243,7 @@ form.pmpro_form .input, form.pmpro_form textarea, .input, form.pmpro_form select
     display: inline-table!important;
     width: 45%!important;
     min-width: 350px;
+    vertical-align: top;
 }
 
 .input {
