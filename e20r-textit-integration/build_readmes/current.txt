@@ -1,1 +1,1 @@
-ENH/BUG: Add the edit-my-details page stub as valid pdb page
+BUG/FIX: Didn't include CSS in build

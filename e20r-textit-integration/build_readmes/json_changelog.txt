@@ -1,1 +1,1 @@
-<h3>1.1.4</h3><ol><li>ENH/BUG: Add the edit-my-details page stub as valid pdb page</li></ol>
+<h3>2.0.2</h3><ol><li>BUG/FIX: Didn't include CSS in build</li></ol>

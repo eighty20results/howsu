@@ -3,7 +3,7 @@
 Plugin Name: E20R HowsU/Text-It Messaging Service integration
 Plugin URI: http://eighty20results.com/wordpress-plugins/e20r-textit-integration/
 Description: howsu.today website integration for the textit.in SMS/Voice messaging service
-Version: 2.0
+Version: 2.0.2
 Requires: 4.7
 Tested: 4.7.5
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
@@ -37,7 +37,7 @@ if ( ! defined( 'HOWSU_PLUGIN_URL' ) ) {
 }
 
 if ( ! defined( 'E20RTEXTIT_VER' ) ) {
-	define( 'E20RTEXTIT_VER', '2.0' );
+	define( 'E20RTEXTIT_VER', '2.0.2' );
 }
 
 class e20rTextitIntegration {
@@ -1418,7 +1418,8 @@ class e20rTextitIntegration {
 			
 			$this->util->log( "Forcing load from TextIt Service for Flows" );
 			
-			$flows = $this->updateTextItService( array(), 'flows.json', 'GET' );
+			$results = $this->updateTextItService( array(), 'flows.json', 'GET' );
+			$flows = isset( $results->results ) ? $results->results : array();
 			
 			$active = array();
 			
@@ -1432,7 +1433,9 @@ class e20rTextitIntegration {
 				$active[] = $data;
 			}
 			
-			update_option( 'e20r_textit_flows', $active, false );
+			if ( !empty( $active ) ) {
+				update_option( 'e20r_textit_flows', $active, false );
+			}
 		}
 		
 		if ( false === $active ) {
@@ -1458,14 +1461,18 @@ class e20rTextitIntegration {
 			
 			$this->util->log( "Forcing load from TextIt Service for Groups" );
 			
-			$glist  = $this->updateTextItService( array(), 'groups.json', 'GET' );
+			$data = $this->updateTextItService( array(), 'groups.json', 'GET' );
+			$glist = isset( $data->results ) ? $data->results : array();
+			
 			$groups = array();
 			
 			foreach ( $glist as $group ) {
 				$groups[ $group->name ] = $group;
 			}
 			
-			update_option( 'e20r_textit_groups', $groups, false );
+			if ( !empty( $groups ) ) {
+				update_option( 'e20r_textit_groups', $groups, false );
+			}
 		}
 		
 		$this->util->log( "Have " . count( $groups ) . " groups" );

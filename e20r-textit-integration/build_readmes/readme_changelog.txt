@@ -1,4 +1,4 @@
-== 1.1.4 ==
+== 2.0.2 ==
 
-* ENH/BUG: Add the edit-my-details page stub as valid pdb page
+* BUG/FIX: Didn't include CSS in build
 
