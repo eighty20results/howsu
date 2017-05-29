@@ -37,7 +37,7 @@ if ( ! defined( 'HOWSU_PLUGIN_URL' ) ) {
 }
 
 if ( ! defined( 'E20RTEXTIT_VER' ) ) {
-	define( 'E20RTEXTIT_VER', '1.1.4' );
+	define( 'E20RTEXTIT_VER', '2.0' );
 }
 
 class e20rTextitIntegration {
@@ -86,7 +86,7 @@ class e20rTextitIntegration {
 	private function __construct() {
 		
 		// TODO: Use options page for TextIt integration to get/save key
-		$this->key = get_option( 'e20r_textit_key', "7964392e969ce3aa258906f8e864380c2d058841" );
+		$this->key = $this->loadSettings( 'textit_key' );
 		
 		// TODO: Use options page for TextIt service URL
 		$this->urlBase = apply_filters(
@@ -119,18 +119,17 @@ class e20rTextitIntegration {
 		}
 		
 		$this->pdb_page_list = apply_filters( 'textit_pdb_page_list', $this->pdb_page_list );
+		
 		add_action( 'plugins_loaded', array( $this, 'loadHooks' ) );
-		// add_action( 'init', array( $this, 'listFlows' ) );
 	}
 	
 	public function listFlows() {
 		
-		if ( WP_DEBUG ) {
-			error_log( "Getting flow info from TextIt service" );
-		}
+		$flows  = $this->getFlows();
+		$groups = $this->getGroups();
 		
-		$flows  = $this->updateTextItService( array(), 'flows.json', 'GET' );
-		$groups = $this->updateTextItService( array(), 'groups.json', 'GET' );
+		$deleted = $this->updateTextItService( array( 'urns' => array( 'tel:+16037859780' ) ), 'contacts.json', 'DELETE' );
+		$contact = $this->updateTextItService( null, 'contacts.json', 'GET' );
 		
 		$active = array();
 		$grps   = array();
@@ -151,8 +150,12 @@ class e20rTextitIntegration {
 			
 		}
 		
-		return '<pre> Flows: ' . print_r( $active, true ) . '</pre><pre> Groups: ' . print_r( $grps, true ) . '</pre>';
+		$string = '';
+		// $string .= '<pre> Flows: ' . print_r( $active, true ) . '</pre>';
+		// $string .= '<pre> Groups: ' . print_r( $grps, true ) . '</pre>';
+		$string .= '<pre> Contacts: ' . print_r( $contact, true ) . '</pre>';
 		
+		return $string;
 	}
 	
 	/**
@@ -178,21 +181,29 @@ class e20rTextitIntegration {
 		// Wait for the membership level to be OK.
 		if ( in_array( pmpro_getGateway(), $gateways_with_pending_status ) ) {
 			
-			$this->util->set_notice( __( "Account not ready. We're waiting for membership payment status from gateway.", "e20r-textit-integration" ), 'notice' );
+			$msg = __( "Account not ready. We're waiting for membership payment status from gateway.", "e20r-textit-integration" );
+			$this->util->set_notice( $msg, 'notice' );
+			$this->util->log( $msg );
 			wp_redirect( pmpro_url( 'levels' ) );
 		}
 		
 		$user                = get_user_by( 'ID', $user_id );
 		$current_level_descr = isset( $howsu_level_map[ $order->membership_id ] ) ? $howsu_level_map[ $order->membership_id ] : $order->membership_id;
 		
-		if ( WP_DEBUG ) {
-			error_log( "Signing up for: {$current_level_descr}" );
-		}
+		$this->util->log( "Signing {$user_id} up for: {$current_level_descr}" );
 		
-		if ( ! in_array( $current_level_descr, array( 'standard', 'premium', 'premiumplus' ) ) ) {
+		if ( ! in_array( $current_level_descr, apply_filters( 'e20r_textit_membership_levels', array(
+			'standard',
+			'premium',
+			'premiumplus',
+		) ) )
+		) {
 			
 			if ( false === $this->registerWithTextIt( $user_id ) ) {
-				$this->util->set_notice( __( "Unable to register the user with the TextIt Service. Please contact the webmaster!", "e20r-textit-integration" ), 'error' );
+				
+				$msg = __( "Unable to register the user with the TextIt Service. Please contact the webmaster!", "e20r-textit-integration" );
+				$this->util->set_notice( $msg, 'error' );
+				$this->util->log( $msg );
 				
 				return false;
 			}
@@ -200,12 +211,48 @@ class e20rTextitIntegration {
 		
 		if ( false === $this->updateUserRecord( $user_id, array( 'onetimefee' => true ), array( 'user_id' => $user->user_email ) ) ) {
 			
-			$this->util->set_notice( __( "Please contact the webmaster. There was a problem recording your one-time setup fee payment", "e20r-textit-integration" ), 'warning' );
+			$msg = __( "Please contact the webmaster. There was a problem recording your one-time setup fee payment", "e20r-textit-integration" );
+			$this->util->set_notice( $msg, 'warning' );
+			$this->util->log( $msg );
 			
 			return false;
 		}
 	}
 	
+	/**
+	 * Validate whether the specified URN is active and
+	 *
+	 * @param      $user_info
+	 * @param null $group_list
+	 *
+	 * @return bool
+	 */
+	public function isUserRegistered( $user_info, $group_list = null ) {
+		
+		if ( empty( $group_list ) ) {
+			$role_name  = $this->_getRoleName( $user_info->service_level );
+			$group_list = $this->_setGroupInfo( $role_name );
+		}
+		
+		$body = array(
+			// 'groups' =>  ! empty( $group_list ) ? $group_list : array(),
+			'urns' => array( "tel:{$user_info->service_number}" ),
+		);
+		
+		$status = $this->updateTextItService( $body, 'contacts.json', 'GET' );
+		
+		$this->util->log( "Returned status for {$user_info->service_number}: " . print_r( $status, true ) );
+		
+		return ( isset( $status->results ) && ! empty( $status->results ) );
+	}
+	
+	/**
+	 * Register the specified user ID to the TextIt Service API
+	 *
+	 * @param $user_id
+	 *
+	 * @return bool
+	 */
 	public function registerWithTextIt( $user_id ) {
 		
 		$groups = 0;
@@ -214,22 +261,22 @@ class e20rTextitIntegration {
 		$user_info = $this->getUserRecord( $user_id, true );
 		
 		if ( empty( $user_info ) ) {
-			$this->util->set_notice( sprintf( __( "Unable to locate user data for %s", "e20r-textit-integration" ), $user->display_name ), 'error' );
+			
+			$msg = sprintf( __( "Unable to locate user data for %s", "e20r-textit-integration" ), $user->display_name );
+			
+			$this->util->set_notice( $msg, 'error' );
+			$this->util->log( $msg );
 			
 			return false;
 		}
 		
-		if ( WP_DEBUG ) {
-			error_log( "User record for {$user_id} is: " . print_r( $user_info, true ) );
-		}
+		$this->util->log( "User record for {$user_id} is: " . print_r( $user_info, true ) );
 		
 		// Generate the correct role name & set it for the specified user.
 		$role_name = $this->_getRoleName( $user_info->service_level );
 		$user->set_role( $role_name );
 		
-		if ( WP_DEBUG ) {
-			error_log( "Configured {$role_name} role for user {$user->user_email}" );
-		}
+		$this->util->log( "Configured {$role_name} role for user {$user->user_email}" );
 		
 		// get the service configuration
 		$flow_config = $this->_getFlowConfig( $user_info->service_type );
@@ -242,83 +289,66 @@ class e20rTextitIntegration {
 		
 		$group_list = $this->_setGroupInfo( $role_name );
 		
-		if ( WP_DEBUG ) {
-			error_log( "TextIt Group info: " . print_r( $group_list, true ) );
-		}
+		$this->util->log( "TextIt Group info: " . print_r( $group_list, true ) );
 		
 		if ( empty( $user_info->service_number ) ) {
-			$this->util->set_notice( sprintf( __( "Cannot start TextIt Service for %s: Err-InvalidServiceNumber", "e20r-textit-integration" ), $user->display_name ), 'error' );
+			$msg = sprintf( __( "Cannot start TextIt Service for %s: Err-InvalidServiceNumber", "e20r-textit-integration" ), $user->display_name );
+			$this->util->set_notice( $msg, 'error' );
+			$this->util->log( $msg );
 		}
 		
-		$textit_record = array(
-			'name'   => "{$user_info->first_name} {$user_info->last_name}",
-			'groups' => ! empty( $group_list ) ? $group_list : array(),
-			'urns'   => array( "tel:{$user_info->service_number}" ),
-			'fields' => array(
-				'flow Type'       => $flow_config['type'],
-				'firstname'       => $user_info->first_name,
-				'lastname'        => $user_info->last_name,
-				'address'         => $user_info->address,
-				'city'            => $user_info->city,
-				'postcode'        => $user_info->zip,
-				'telephone'       => $user_info->phone,
-				'age range'       => ! empty( $user_info->age_range ) ? $user_info->age_range : '0',
-				'contact 1 name'  => ! empty( $user_info->full_name_c1 ) ? $user_info->full_name_c1 : '0',
-				'contact 1 phone' => ! empty( $user_info->contact_number_c1 ) ? $user_info->contact_number_c1 : '0',
-				'contact 1 email' => ! empty( $user_info->email_c1 ) ? $user_info->email_c1 : '0',
-				'contact 2 name'  => ! empty( $user_info->full_name_2 ) ? $user_info->full_name_2 : '0',
-				'contact 2 phone' => ! empty( $user_info->contact_number_2_2 ) ? $user_info->contact_number_2_2 : '0',
-				'contact 2 email' => ! empty( $user_info->email_c2 ) ? $user_info->email_c2 : '0',
-				'elapsed time'    => ! empty( $user_info->elapse_time ) ? $user_info->elapse_time : '0',
-			),
-		);
+		$textit_record = $this->configureTextItRecord( $user_info, $group_list, $flow_config );
 		
-		if ( WP_DEBUG ) {
-			error_log( "Loading user info to TextIt Service" );
-		}
+		$this->util->log( "Loading user info to TextIt Service: " . print_r( $textit_record['fields'], true ) );
+		
+		$is_registered = $this->isUserRegistered( $user_info, $group_list );
+		
+		$this->util->log( "User is registered? " . ( isset( $is_registered->results ) && ! empty( $is_registered->results ) ? 'Yes' : 'No' ) );
 		
 		// Add new user record to the TextIt Service
-		if ( false !== ( $data = $this->updateTextItService( $textit_record ) ) ) {
+		if ( ! empty( $is_registered ) || ( empty( $is_registered ) && ( false !== ( $data = $this->updateTextItService( $textit_record ) ) ) ) ) {
+			
+			$this->util->log( "Added user info during checkout for {$user_id}" );
 			
 			$u_record = array( 'textitid' => $data->uuid, 'status' => 1, 'onetimefee' => 1 );
 			$where    = array( 'id' => $user_info->id );
 			
+			// Save the TextIt User UUID (contact record UUID)
+			update_user_meta( $user_id, 'e20r_textit_contact_uuid', $data->uuid );
+			
 			// Update the status for the user record
 			if ( false === ( $user_info = $this->updateUserRecord( $user_id, $u_record, $where ) ) ) {
 				
-				$this->util->set_notice( __( "Unable to update local DB record after subscribing to TextIt service", "e20r-textit-integration" ), 'error' );
+				$msg = __( "Unable to update local DB record after subscribing to TextIt service", "e20r-textit-integration" );
+				$this->util->set_notice( $msg, 'error' );
+				$this->util->log( $msg );
 				
 				return false;
 			}
+   
+			$urn_info = array( "tel: {$user_info->service_number}" );
 			
-			if ( WP_DEBUG ) {
-				error_log( "Updated user record with successful TextIt record load. Now sending welcome message to {$user_info->textitid}" );
-			}
+			$this->util->log( "Updated user record with successful TextIt record load. Now sending welcome message to {$user_info->textitid}" );
 			
-			if ( false !== ( $response = $this->sendMessage( 'welcomemessage', $user_info->textitid ) ) ) {
+			if ( false !== ( $response = $this->sendMessage( 'welcomemessage', $urn_info ) ) ) {
 				
-				if ( WP_DEBUG ) {
-					error_log( "Welcome message sent" );
-				}
+				$this->util->log( "Welcome message sent" );
 				
 				$flow_config = $this->_getFlowConfig( 'welcomemessage' );
 				
 				$msg = array(
-					"action"     => 'remove',
-					"group_uuid" => $flow_config['group_uuid'],
-					"contacts"   => ! empty( $user_info->textitid ) ? $user_info->textitid : array(),
+					"action"   => 'remove',
+					"group"    => $flow_config['group_uuid'],
+					"contacts" => ! empty( $user_info->textitid ) ? array( $user_info->textitid ) : array(),
 				);
 				
 				$response = $this->updateTextItService( $msg, 'contact_actions.json' );
-				
-				if ( WP_DEBUG ) {
-					error_log( "Response from final attempt to update TextIt: " . print_r( $response, true ) );
-				}
+				$this->util->log( "Response from final attempt to update TextIt: " . print_r( $response, true ) );
 			}
-			
 		} else {
 			
-			$this->util->set_notice( __( "Unable to subscribe you to the TextIt service", "e20r-textit-integration" ), "error" );
+			$msg = __( "Unable to subscribe you to the TextIt service", "e20r-textit-integration" );
+			$this->util->set_notice( $msg, "error" );
 			
 			// Send email to the admin when something goes wrong.
 			$admin_email = apply_filters( 'e20r_textit_admin_email_addr', array( get_option( 'admin_email' ) ) );
@@ -326,24 +356,30 @@ class e20rTextitIntegration {
 			$message     = "Error subscribing user {$user_info->first_name} {$user_info->last_name} with record ID {$user_info->id} to the {$user_info->service_type} TextIt service";
 			$subject     = "HowsU: New TextIt Subscription failure";
 			
+			$this->util->log( $message );
+			
 			// Send the admin an email notice
 			wp_mail( $recipients, $subject, $message );
 			
-			if ( empty( $groups ) ) {
-				$groups = array( 'UserAssistance' );
-			}
+			// Set the group for the user to request assistance
+			$groups = $this->_getGroupUUIDsFromName( array( 'UserAssistance' ) );
+			
+			$urn_type = strtolower( $user_info->type );
+			$urn_info = array( "tel: {$user_info->service_number}" );
 			
 			// Retry sending the welcome message?
 			$msg = array(
 				'name'   => "{$user_info->first_name} {$user_info->last_name}",
 				'groups' => ! empty( $groups ) ? $groups : array(),
-				'urns'   => "tel:{$user_info->service_number}",
+				'urns'   => $urn_info,
 			);
 			
 			$data = $this->updateTextItService( $msg );
 			
 			if ( false === $data ) {
-				$this->util->set_notice( __( "Failed to send alert message", "e20r-textit-integration" ), 'error' );
+				$msg = __( "Failed to send alert message", "e20r-textit-integration" );
+				$this->util->log( $msg );
+				$this->util->set_notice( $msg, 'error' );
 				
 				return false;
 			}
@@ -354,33 +390,69 @@ class e20rTextitIntegration {
 					'onetimefee' => 1,
 				), array( 'id' => $user_info->id ) )
 			) {
-				$this->util->set_notice( __( "Failed to update the user's database record after welcome message retry", "e20r-textit-integration" ), 'error' );
+				$msg = __( "Failed to update the user's database record after welcome message retry", "e20r-textit-integration" );
+				$this->util->set_notice( $msg, 'error' );
+				$this->log( $msg );
 				
 				return false;
 			}
 			
-			if ( false === $this->sendMessage( 'welcomemessage', $user_info->textitid ) ) {
-				$this->util->set_notice( __( "Failed at second attempt to send welcome message", "e20r-textit-integration" ), 'error' );
+			if ( false === $this->sendMessage( 'welcomemessage', $urn_info ) ) {
+				$msg = __( "Failed at second attempt to send welcome message", "e20r-textit-integration" );
+				$this->util->set_notice( $msg, 'error' );
+				$this->util->log( $msg );
 				
 				return false;
 			}
 		}
 	}
 	
+	private function configureTextItRecord( $user_info, $group_list, $flow_config ) {
+		
+		$field_config = $this->loadSettings( 'field_map' );
+		
+		$textit_record = array(
+			'name'   => "{$user_info->first_name} {$user_info->last_name}",
+			'groups' => ! empty( $group_list ) ? $group_list : array(),
+			'urns'   => array( "tel:{$user_info->service_number}" ),
+			'fields' => array(),
+		);
+		
+		foreach ( $field_config as $tField => $dbField ) {
+			
+			if ( isset( $user_info->{$dbField} ) ) {
+				$textit_record['fields'][ $tField ] = $user_info->{$dbField};
+			}
+		}
+		
+		return $textit_record;
+	}
+	
+	/**
+	 * Transmit a TextIt Message to the contact(s)
+	 *
+	 * @param $flow_type
+	 * @param $who
+	 *
+	 * @return bool
+	 */
 	public function sendMessage( $flow_type, $who ) {
 		
 		$flow_settings = $this->_getFlowConfig( $flow_type );
+		// $who           = ! is_array( $who ) ? array( "tel: {$who}" ) : $who;
 		
 		$msg = array(
-			'flow_uuid' => $flow_settings['flow_id'],
-			'contacts'  => ! empty( $who ) ? $who : array(),
+			'flow' => $flow_settings['flow_id'],
+			'urns' => $who,
 		);
 		
-		$data = $this->updateTextItService( $msg, 'runs.json' );
+		$data = $this->updateTextItService( $msg, 'flow_starts.json', 'POST' );
 		
 		if ( $data === false ) {
 			
-			$this->util->set_notice( __( "Unable to send the welcome message to the new user!", "e20r-textit-integration" ), 'error' );
+			$msg = __( "Unable to send the welcome message to the new user!", "e20r-textit-integration" );
+			$this->util->set_notice( $msg, 'error' );
+			$this->util->log( $msg );
 			
 			return false;
 			
@@ -389,51 +461,83 @@ class e20rTextitIntegration {
 		}
 	}
 	
+	/**
+	 * Stop the TextIt Service for the specific user ID
+	 *
+	 * @param int $user_id
+	 *
+	 * @return bool
+	 */
 	public function pauseTextItService( $user_id ) {
 		
-		$user_info = $this->getUserRecord( $user_id );
-		
-		/*
-
-		$groupArray = array();
-
-		$group1 = $user_info->service_level . substr($user_info->time_window, 0, 2);
-		$group2 = $user_info->service_level . substr($user_info->time_window_2, 0, 2);
-		$group3 = $user_info->service_level . substr($user_info->time_window_3, 0, 2);
-
-		$groupArray = array($group1, $group2, $group3);
-		*/
-		
-		$data = array(
-			'urns'   => "tel:{$user_info->service_number}",
-			'groups' => array(),
-		);
-		
-		return $this->updateTextItService( $data );
-	}
-	
-	public function resumeTextItService( $user_id ) {
-		
-		$groupArray = array();
 		$user_info  = $this->getUserRecord( $user_id );
-		
 		$group_name = $this->_getRoleName( $user_info->service_level );
 		$group_list = $this->_setGroupInfo( $group_name );
 		
-		/*
-		$group1 = $level . substr( $user_info->time_window, 0, 2 );
-		$group2 = $level . substr( $user_info->time_window_2, 0, 2 );
-		$group3 = $level . substr( $user_info->time_window_3, 0, 2 );
-
-		$groupArray = array( $group1, $group2, $group3 );
-		*/
-		
 		$data = array(
-			'urns'   => "tel:{$user_info->service_number}",
-			'groups' => $group_list,
+			'contacts' => array( "tel:{$user_info->service_number}" ),
+//			'group'  => $group_list,
+			'action'   => 'block',
 		);
 		
-		return $this->updateTextItService( $data );
+		return $this->updateTextItService( $data, 'contact_actions.json', 'POST' );
+	}
+	
+	/**
+	 * Restart/activate the TextIt Service for the specific user ID
+	 *
+	 * @param $user_id
+	 *
+	 * @return bool
+	 */
+	public function resumeTextItService( $user_id ) {
+		
+		$user_info = $this->getUserRecord( $user_id );
+		$status    = false;
+		
+		if ( ! empty( $user_info ) ) {
+			
+			$group_name    = $this->_getRoleName( $user_info->service_level );
+			$group_list    = $this->_setGroupInfo( $group_name );
+			$flow_config   = $this->_getFlowConfig( $user_info->service_type );
+			$textit_record = $this->configureTextItRecord( $user_info, $group_list, $flow_config );
+			$user_uuid     = get_user_meta( $user_id, 'e20r_textit_contact_uuid', true );
+			
+			$this->util->log( "Including user info for TextIt Service: " . print_r( $textit_record['fields'], true ) );
+			
+			$data = array(
+				'urns'   => array( "tel:{$user_info->service_number}" ),
+				'groups' => $group_list,
+				'fields' => $textit_record['fields'],
+			);
+			
+			$status = $this->updateTextItService( $data, 'contacts.json', 'POST', $user_uuid );
+			
+			$data = array(
+				'contacts' => array( "tel:{$user_info->service_number}" ),
+				'action'   => 'unblock',
+			);
+			
+			$status = $this->updateTextItService( $data, 'contact_actions.json', 'POST' );
+			
+			if ( false !== ( $response = $this->sendMessage( 'welcomemessage', array( "tel:{$user_info->service_number}" ) ) ) ) {
+				
+				$this->util->log( "Welcome message sent" );
+				
+				$flow_config = $this->_getFlowConfig( 'welcomemessage' );
+				
+				$msg = array(
+					"action"   => 'remove',
+					"group"    => $flow_config['group_uuid'],
+					"contacts" => ! empty( $user_info->textitid ) ? array( $user_info->textitid ) : array(),
+				);
+				
+				$response = $this->updateTextItService( $msg, 'contact_actions.json' );
+				$this->util->log( "Response from final attempt to update TextIt: " . print_r( $response, true ) );
+			}
+		}
+		
+		return $status;
 	}
 	
 	public function ajaxPauseService() {
@@ -463,7 +567,6 @@ class e20rTextitIntegration {
 		if ( WP_DEBUG ) {
 			error_log( "Preparing to update database via AJAX call" );
 		}
-		// TODO: Add nonce check(s).
 		
 		global $current_user;
 		
@@ -482,7 +585,7 @@ class e20rTextitIntegration {
 			} else {
 				
 				$msg = array(
-					'urns' => "tel:{$service_number}",
+					'urns' => array( "tel:{$service_number}" ),
 				);
 				
 				$timewindow_vars = apply_filters( 'e20r_textit_timewindow_variable_names', array(
@@ -508,7 +611,7 @@ class e20rTextitIntegration {
 							$groups[2] = "{$record->service_level}{$time}";
 					}
 					
-					$msg['groups'] = $groups;
+					$msg['groups'] = $this->_getGroupUUIDsFromName( $groups );
 				} else {
 					
 					$column        = $this->_mapTextItColumns( $column );
@@ -527,7 +630,7 @@ class e20rTextitIntegration {
 		wp_send_json_success();
 	}
 	
-	public function updateTextItService( $body, $json_file = "contacts.json", $operation = 'POST' ) {
+	public function updateTextItService( $body = null, $json_file = "contacts.json", $operation = 'POST', $user_uuid = null ) {
 		
 		$request = array(
 			'timeout'     => apply_filters( 'e20r_textit_service_request_timeout', 30 ),
@@ -538,88 +641,153 @@ class e20rTextitIntegration {
 				"Accept"        => "application/json",
 				"Authorization" => "Token {$this->key}",
 			),
-			'body'        => ! empty( $body ) ? json_encode( $body ) : null,
+			'body'        => ! empty( $body ) ? json_encode( $body ) : array(),
 		);
-		
 		
 		$url = "{$this->urlBase}/{$json_file}";
 		
-		if ( WP_DEBUG ) {
-			error_log( "Sending to {$url}: " . print_r( $request, true ) );
-		}
-		
 		switch ( strtolower( $operation ) ) {
 			case 'get':
-				$response = wp_remote_get( $url, $request );
+				$request['method'] = 'GET';
 				break;
 			
 			case 'delete':
 				$request['method'] = 'DELETE';
-				$response          = wp_remote_request( $url, $request );
 				break;
 			
 			case 'put':
 				$request['method'] = 'PUT';
-				$response          = wp_remote_request( $url, $request );
 				break;
 			
 			default: // Default (most used) is POST operation
-				$response = wp_remote_post( $url, $request );
+				$request['method'] = 'POST';
+		}
+		
+		$this->util->log( "Body content: " . print_r( $body, true ) );
+		
+		if ( $json_file == 'contacts.json' && strtolower( $operation ) != 'post' && isset( $body['urns'][0] ) ) {
+			
+			$urn = urlencode( $body['urns'][0] );
+			$this->util->log( "URN Info: {$urn} vs " . print_r( $body, true ) );
+			$url = add_query_arg( 'urn', $urn, $url );
+		}
+		
+		$this->util->log( "User data: UUID => {$user_uuid} -> " . print_r( $body, true ) );
+		
+		// Add the UUID for POST operations against the contacts.json API service
+		if ( $json_file == 'contacts.json' && strtolower( $operation ) == 'post' && ! empty( $user_uuid ) ) {
+			$this->util->log( "Adding User's UUID to URL " );
+			$url = add_query_arg( 'uuid', $user_uuid, $url );
+		}
+		
+		$this->util->log( "Sending {$request['method']} to {$url}: " . print_r( $request, true ) );
+		
+		$response    = wp_remote_request( $url, $request );
+		$status_code = wp_remote_retrieve_response_code( $response );
+		
+		$this->util->log( "Status Code: {$status_code}" );
+		
+		if ( $status_code >= 400 ) {
+			$this->util->log( "Raw Response from TextIt API Servers: " . print_r( $response, true ) );
+		}
+		
+		if ( $status_code >= 300 ) {
+			
+			$msg = sprintf(
+				__( "Unable to update TextIt service: %s", "e20r-textit-integration" ),
+				wp_remote_retrieve_response_message( $response )
+			);
+			
+			$this->util->set_notice( $msg, 'warning' );
+			$this->util->log( $msg );
+			
+			return false;
 		}
 		
 		$data = json_decode( wp_remote_retrieve_body( $response ) );
 		
-		if ( is_wp_error( $response ) ) {
-			
-			$this->util->set_notice(
-				sprintf(
-					__( "Unable to update TextIt service: %s", "e20r-textit-integration" ),
-					implode( ' - ', $response->get_error_messages() )
-				)
-			);
-			
-			return false;
-		}
-		
 		if ( isset( $data->failed ) && ! empty( $data->failed ) ) {
-			
-			$this->util->set_notice( __( "Unable to update TextIt service: %s", "e20r-textit-integration" ), 'error' );
+			$msg = __( "Unable to update TextIt service", "e20r-textit-integration" );
+			$this->util->set_notice( $msg, 'error' );
+			$this->util->log( $msg );
 			
 			return false;
 		}
 		
-		return $data->results;
-	}
-	
-	private function _mapTextItColumns( $column ) {
-		
-		$textit_cols = apply_filters( 'e20r_textit_contact_column_map', array(
-			'flow Type'         => 'flow',
-			'elapsed time'      => 'Elapsed',
-			'firstname'         => 'first_name',
-			'lastname'          => 'last_name',
-			'address'           => 'address',
-			'city'              => 'city',
-			'postcode'          => 'zip',
-			'telephone'         => 'phone',
-			'contact 1 name'    => 'full_name_c1',
-			'contact 1 phone'   => 'contact_number_c1',
-			'contact 1 email'   => 'email_c1',
-			'contact 2 name'    => 'full_name_2',
-			'contact 2 phone 2' => 'contact_number_2_2',
-			'contact 2 email'   => 'email',
-		) );
-		
-		foreach ( $textit_cols as $col => $key ) {
+		// $this->util->log( "Response from Service: " . print_r( $data, true ) );
+		if ( $status_code <= 299 ) {
 			
-			if ( $column === $key ) {
-				$column = $col;
+			$this->util->log( "Returned data for {$json_file} {$operation} operation: " . print_r( $data, true ) );
+			
+			if ( isset( $data ) ) {
+				return $data;
+			} else {
+				return true;
 			}
 		}
 		
-		return $column;
+		$this->util->set_notice( __( "Unknown error: Please report this to the website administrator", "e20r-textit-integration" ) );
+		
+		return false;
 	}
 	
+	/**
+	 * Load User Contact Fields from TextIt Service
+	 *
+	 * @param bool $force
+	 *
+	 * @return array
+	 */
+	private function getTextItFields( $force = false ) {
+		
+		$fields = get_option( 'e20r_textit_fields', false );
+		
+		if ( $force === true || empty( $fields ) ) {
+			
+			$fields = $this->updateTextItService( null, 'fields.json', 'GET' );
+			$fields = update_option( 'e20r_textit_fields', $fields, false );
+		}
+		
+		return $fields;
+	}
+	
+	/**
+	 * Load User Database Fields for HowsU DB record
+	 *
+	 * @return array
+	 */
+	private function getDBFields() {
+		
+		global $wpdb;
+		$tableName = $this->loadSettings( 'user_database' );
+		$fields    = array();
+		
+		if ( ! empty( $tableName ) ) {
+			$sql = "DESCRIBE {$wpdb->prefix}{$tableName}";
+			
+			$tableInfo = $wpdb->get_results( $sql );
+			
+			if ( ! empty( $tableInfo ) ) {
+				foreach ( $tableInfo as $row ) {
+					$fields[ $row->Field ] = $row->Type;
+				}
+			}
+		}
+		
+		ksort( $fields );
+		
+		return $fields;
+	}
+	
+	/**
+	 * Get all TextIt groups for the specific group/role the (new?) user has been assigned/chosen
+	 *
+	 * @param string $group_name
+	 * @param null   $var
+	 * @param null   $value
+	 *
+	 * @return array
+	 */
 	private function _setGroupInfo( $group_name, $var = null, $value = null ) {
 		
 		$var_name = apply_filters( 'e20r_textit_timewindow_variable_names', array(
@@ -649,7 +817,7 @@ class e20rTextitIntegration {
 				$entries = 0;
 		}
 		
-		$group = array();
+		$groups = array();
 		
 		for ( $i = 0; $i < $entries; $i ++ ) {
 			
@@ -663,62 +831,42 @@ class e20rTextitIntegration {
 				$group_name = 'weekend';
 			}
 			
-			$group[] = "{$group_name}{$time}";
+			$groups[] = "{$group_name}{$time}";
 		}
 		
-		return $group;
+		$groups = $this->_getGroupUUIDsFromName( $groups );
+		
+		return $groups;
 	}
 	
+	private function _getGroupUUIDsFromName( $groups = array() ) {
+		
+		$cached_groups = $this->getGroups();
+		$group_uuids   = array();
+		
+		$this->util->log( "Convert Group names to UUIDs for v2 of the TextIt API to use" );
+		
+		foreach ( $groups as $name ) {
+			$group_uuids[] = $cached_groups[ $name ]->uuid;
+		}
+		
+		return $group_uuids;
+	}
+	
+	/**
+	 * Return the Flow Configuration for the service type
+	 *
+	 * @param $type
+	 *
+	 * @return mixed
+	 */
 	private function _getFlowConfig( $type ) {
 		
-		$this->flow_settings = apply_filters( 'e20r_textit_flow_settings_array', $this->_defaultFlowSettings() );
+		$this->flow_settings = apply_filters( 'e20r_textit_flow_settings_array', $this->loadSettings( 'service_mappings' ) );
 		
 		$flow_type = $this->_process_text( $type );
 		
 		return $this->flow_settings[ $flow_type ];
-	}
-	
-	/**
-	 * TODO: Flow settings should be 'mappable' from a settings page (have to list types (telephonecall, smstext,
-	 * fbmessenger and welcomemessage) ) and then allow user to use fetched flow(s) and groups for the
-	 *
-	 * @param array $settings
-	 *
-	 * @return array
-	 */
-	private function _defaultFlowSettings( $settings = array() ) {
-		
-		$settings['telephonecall'] = array(
-			'type'       => 'TEL',
-			'flow_id'    => '81b71a38-aec2-4f71-adb1-cfecd3b4d5ba', //How's U? Follow up call (flow UUID)
-			'group_uuid' => '607571ed-125c-432c-a2dc-ebf93539357a', // Hows U? New Customer (group UUID)
-		);
-		
-		$settings['smstext'] = array(
-			'type'       => 'SMS',
-			'flow_id'    => '',
-			'group_uuid' => '607571ed-125c-432c-a2dc-ebf93539357a', // Hows U? New Customer (group UUID)
-		);
-		
-		$settings['facebookmessenger'] = array(
-			'type'       => 'FBM',
-			'flow_id'    => '',
-			'group_uuid' => '607571ed-125c-432c-a2dc-ebf93539357a', // Hows U? New Customer (group UUID)
-		);
-		
-		$settings['welcomemessage'] = array(
-			'type'       => '',
-			'flow_id'    => '63c42285-f938-4528-9274-40419028d5db', // How's U? Customer Welcome Master Flow (flow UUID)
-			'group_uuid' => '607571ed-125c-432c-a2dc-ebf93539357a', // Hows U? New Customer (group UUID)
-		);
-		
-		/*
-		$settings = array(
-			'default'   => '79e42ec6-ba35-41e8-bd0b-0a8fd44cc657'
-		);
-		*/
-		
-		return $this->loadSettings( 'service_mappings' );
 	}
 	
 	/**
@@ -732,26 +880,52 @@ class e20rTextitIntegration {
 	 * @access public
 	 */
 	public function validateSettings( $input ) {
-  
+		
 		if ( isset( $input['service_mappings'] ) ) {
 			return $input;
 		}
-  
+		
+		
 		// Base our settings off of the defaults
 		$this->settings = $this->defaultSettings();
-  
+		
 		// Update the database table to use for the service
-		if ( isset( $input['user_database'] ) && !empty( $input['user_database'])) {
+		if ( isset( $input['user_database'] ) && ! empty( $input['user_database'] ) ) {
 			$this->settings['user_database'] = $input['user_database'];
-        }
-        
-        // Process all defined services & set their flow & group IDs (if applicable)
+		}
+		
+		// Update the TextIt API Key setting
+		if ( isset( $input['textit_key'] ) && ! empty( $input['textit_key'] ) ) {
+			$this->settings['textit_key'] = $input['textit_key'];
+		}
+		
+		// Process all defined services & set their flow & group IDs (if applicable)
 		foreach ( $input['servicekey'] as $key => $name ) {
 			
-			$this->settings['service_mappings'][$name]['flow_id'] = ( empty( $input['flow_id'][$key] ) ? '' : $input['flow_id'][$key] );
-			$this->settings['service_mappings'][$name]['group_uuid'] = ( empty( $input['group_uuid'][$key] ) ? '' : $input['group_uuid'][$key] );
+			$this->settings['service_mappings'][ $name ]['flow_id']    = ( empty( $input['flow_id'][ $key ] ) ? '' : $input['flow_id'][ $key ] );
+			$this->settings['service_mappings'][ $name ]['group_uuid'] = ( empty( $input['group_uuid'][ $key ] ) ? '' : $input['group_uuid'][ $key ] );
 		}
-  
+		
+		if ( WP_DEBUG ) {
+			
+			$this->util->log( "Input from Settings API: " . print_r( $input, true ) );
+			
+			// return $this->settings;
+		}
+		
+		if ( ! is_array( $this->settings['field_map'] ) ) {
+			$this->settings['field_map'] = array();
+		}
+		
+		foreach ( $input['field_map'] as $key => $db_field_name ) {
+			
+			if ( $db_field_name != '-1' ) {
+				$this->settings['field_map'][ $key ] = $db_field_name;
+			} else if ( $db_field_name == '-1' && isset( $this->settings['field_map'][ $key ] ) ) {
+				unset( $this->settings['field_map'][ $key ] );
+			}
+		}
+		
 		// Validated & updated settings
 		return $this->settings;
 	}
@@ -799,6 +973,8 @@ class e20rTextitIntegration {
 		
 		$settings = array(
 			'user_database'    => 'participants_database',
+			'textit_key'       => '7964392e969ce3aa258906f8e864380c2d058841',
+			'field_map'        => $this->defaultFieldMap(),
 			'service_mappings' => $default_service_mappings,
 		);
 		
@@ -876,29 +1052,192 @@ class e20rTextitIntegration {
 		);
 		
 		add_settings_field(
+			'e20r_textit_key',
+			__( "TextIt API", "e20r-textit-integration" ),
+			array( $this, 'renderKeyField' ),
+			'e20r-textit',
+			'e20r_textit_flowmap',
+			array( 'option_name' => 'textit_key' )
+		);
+		
+		add_settings_field(
 			'e20r_textit_flows',
-			__( "Service Configuration", "e20r-textit-integration" ),
+			__( "Configuration", "e20r-textit-integration" ),
 			array( $this, 'renderFlowMaps' ),
 			'e20r-textit',
 			'e20r_textit_flowmap',
 			array( 'option_name' => 'service_mappings' )
 		);
+		
+		add_settings_section(
+			'e20r_textit_dbmap',
+			__( "TextIt Fields to User Data Field Map", 'e20r-textit-integration' ),
+			array( $this, 'renderDataMapSection' ),
+			'e20r-textit'
+		);
+		
+		add_settings_field(
+			'e20r_textit_dbfields',
+			__( "Field Mapping", "e20r-textit-integration" ),
+			array( $this, 'renderDataFieldMap' ),
+			'e20r-textit',
+			'e20r_textit_dbmap',
+			array( 'option_name' => 'field_map' )
+		);
+		
+	}
+	
+	public function renderDataMapSection() {
+		?>
+        <p class="e20r-textit-settings-text">
+			<?php // _e( "Map TextIt User fields to local DB user fields", "e20r-textit-integration" ); ?>
+        </p>
+		<?php
+	}
+	
+	public function renderDataFieldMap( $settings ) {
+		
+		
+		$TextItFields = $this->getTextItFields();
+		$dbFields     = $this->getDBFields();
+		
+		// $this->util->log( "TextIt Data: " . print_r( $TextItFields, true ) );
+		// $this->util->log( "DB Info: " . print_r( $dbFields, true ) );
+		
+		?>
+        <div class="e20r-textit-service">
+            <div class="e20r-textit-service-row">
+                <label for="e20r_textit_db_maps-field_map"><?php _e( "HowsU Record to TextIt Contact Field Maps", "e20r-textit-integration" ) ?></label>
+                <table class="e20r_textit_db_maps">
+                    <thead>
+                    <tr class="e20r_textit_db_map_header">
+                        <th class="e20r_textit_db_map_field">
+							<?php _e( "Local User Data Field", "e20r-textit-integration" ); ?>
+                        </th>
+                        <th class="e20r_textit_db_map_field">
+							<?php _e( "TextIt Service Contact Field", "e20r-textit-integration" ); ?>
+                        </th>
+                    </tr>
+                    </thead>
+                    <tbody>
+					<?php
+					foreach ( $TextItFields as $field ) {
+						?>
+                        <tr class="e20r_textit_db_map_row">
+                            <td class="e20r_textit_db_map_field">
+                                <label for="e20r_textit_dbmap-<?php esc_attr_e( $field->key ); ?>"><?php esc_attr_e( $field->label ); ?>
+                                    (<?php esc_attr_e( $field->value_type ); ?>)</label>
+                            </td>
+                            <td class="e20r_textit_db_map_field">
+								<?php echo $this->renderDBFieldList( $settings['option_name'], $field->key, $dbFields ); ?>
+                            </td>
+                        </tr>
+						<?php
+					}
+					?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+		
+		<?php
+	}
+	
+	private function renderDBFieldList( $option_name, $key, $dbFields ) {
+		
+		$field_map = $this->loadSettings( $option_name );
+		
+		if ( empty( $field_map ) ) {
+			$field_map = $this->defaultFieldMap();
+		}
+		
+		/**
+		 * Field Map: array( $key => $dbField_key, )
+		 */
+		$html = '';
+		// $html .= sprintf( '<input type="hidden" value="%1$s" name="%2$s" />', $key, "{$this->settings_name}[{$option_name}][]" );
+		$html .= sprintf( '<select class="e20r_textit_dbmap" id="%1$s" name="%2$s">', "e20r_textit_dbmap-{$key}", "{$this->settings_name}[{$option_name}][$key]" );
+		$html .= sprintf( '  <option value="%1$s" %2$s>%3$s</option>', '-1', ( isset( $field_map[ $key ] ) ? selected( $field_map[ $key ], '-1', false ) : null ), __( 'Ignore', 'e20r-textit-integration' ) );
+		foreach ( $dbFields as $field => $type ) {
+			$html .= sprintf( '   <option value="%1$s" %2$s>%3$s</option>', $field, ( isset( $field_map[ $key ] ) ? selected( $field_map[ $key ], $field, false ) : null ), esc_attr( $field ) . " ( " . esc_attr( $type ) . " )" );
+		}
+		$html .= sprintf( '</select>' );
+		
+		return $html;
+	}
+	
+	private function defaultFieldMap() {
+		
+		return array(
+			'flowtype'       => 'flow',
+			'elapsed_time'   => 'elapse_time',
+			'firstname'      => 'first_name',
+			'lastname'       => 'last_name',
+			'address'        => 'address',
+			'city'           => 'city',
+			'postcode'       => 'zip',
+			'telephone'      => 'phone',
+			'contact1name'   => 'full_name_c1',
+			'contact1phone'  => 'contact_number_c1',
+			'contact1email'  => 'email_c1',
+			'contact2name'   => 'full_name_2',
+			'contact2phone2' => 'contact_number_2_2',
+			'contact2email'  => 'email',
+		);
+	}
+	
+	private function _mapTextItColumns( $column ) {
+		
+		$textit_cols = $this->loadSettings( 'field_map' );
+		$textit_cols = apply_filters( 'e20r_textit_contact_column_map', $textit_cols );
+		
+		foreach ( $textit_cols as $col => $key ) {
+			
+			if ( $column === $key ) {
+				$column = $col;
+			}
+		}
+		
+		return $column;
+	}
+	
+	public function renderKeyField( $settings ) {
+		$key = $this->loadSettings( $settings['option_name'] );
+		
+		if ( empty( $key ) ) {
+			$opts = $this->defaultSettings();
+			$key  = $opts[ $settings['option_name'] ];
+		}
+		
+		?>
+        <div class="e20r-textit-service">
+            <div class="e20r-textit-service-row">
+                <label for="e20r_textit_service-textit_key"><?php _e( "Key", "e20r-textit-integration" ) ?></label>
+                <input id="e20r_textit_service-textit_key" type="password"
+                       name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
+                       about="<?php _e( "Enter the secret key for TextIt API v2 access", "e20r-textit-integration" ); ?>"
+                       value="<?php esc_attr_e( $key ); ?>"/>
+            </div>
+        </div>
+		<?php
+		
 	}
 	
 	/**
-     * Generate listing of user Database settings for HowsU/TextIt service
-     *
+	 * Generate listing of user Database settings for HowsU/TextIt service
+	 *
 	 * @param array $settings
 	 */
 	public function renderDBSelect( $settings ) {
-	 
+		
 		$user_db_table = $this->loadSettings( $settings['option_name'] );
 		$tables        = $this->getDBTables();
 		?>
         <div class="e20r-textit-service">
             <div class="e20r-textit-service-row">
-                <label for="e20r_textit_service-flow-user_database"><?php __( "HowsU record store for users", "e20r-textit-integration" ) ?></label>
-                <select name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]" id="e20r_textit_service-flow-user_database">
+                <label for="e20r_textit_service-flow-user_database"><?php _e( "HowsU user records", "e20r-textit-integration" ) ?></label>
+                <select name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
+                        id="e20r_textit_service-flow-user_database">
                     <option value="" <?php selected( '', $user_db_table ) ?>><?php _e( "Not Configured", "e20r-textit-integration" ); ?></option>
 					<?php
 					foreach ( $tables as $table_name ) { ?>
@@ -943,9 +1282,7 @@ class e20rTextitIntegration {
 		
 		$services = $this->loadSettings( $settings['option_name'] );
 		
-		if ( WP_DEBUG ) {
-			error_log( "Found " . count( $services ) . " configurable services for {$settings['option_name']}" );
-		}
+		$this->util->log( "Found " . count( $services ) . " configurable services for {$settings['option_name']}" );
 		
 		if ( ! empty( $services ) ) {
 			
@@ -970,7 +1307,7 @@ class e20rTextitIntegration {
 		
 		printf( '<div class="e20r-textit-service">' );
 		printf( '    <h3 class="e20r-textit-service-name">%1$s</h3>', $settings['label'] );
-		printf( '    <input type="hidden" name="%1$s" value="%2$s">', "{$this->settings_name}[servicekey][]",$serviceKey );
+		printf( '    <input type="hidden" name="%1$s" value="%2$s">', "{$this->settings_name}[servicekey][]", $serviceKey );
 		printf( '    <div class="e20r-textit-service-row">' );
 		printf( '        <label for="e20r_textit_service-flow-%1$s">%2$s</label>', $serviceKey, __( "Flow", "e20r-textit-integration" ) );
 		printf( '        <select name="%1$s" id="e20r_textit_service-flow-%2$s">', "{$this->settings_name}[flow_id][]", $serviceKey );
@@ -1036,6 +1373,7 @@ class e20rTextitIntegration {
 		
 		$this->getFlows( true );
 		$this->getGroups( true );
+		$this->getTextItFields( true );
 	}
 	
 	/**
@@ -1046,13 +1384,13 @@ class e20rTextitIntegration {
 	 * @return bool|mixed
 	 */
 	public function loadSettings( $option_name ) {
-  
+		
 		$this->settings = get_option( "{$this->settings_name}", false );
 		
-	    if ( empty( $this->settings ) ) {
-	        $this->settings = $this->defaultSettings();
-        }
-        
+		if ( empty( $this->settings ) ) {
+			$this->settings = $this->defaultSettings();
+		}
+		
 		if ( isset( $this->settings[ $option_name ] ) && ! empty( $this->settings[ $option_name ] ) ) {
 			
 			return $this->settings[ $option_name ];
@@ -1074,9 +1412,7 @@ class e20rTextitIntegration {
 		
 		if ( true === $force || empty( $active ) ) {
 			
-			if ( WP_DEBUG ) {
-				error_log( "Forcing load from TextIt Service for Flows" );
-			}
+			$this->util->log( "Forcing load from TextIt Service for Flows" );
 			
 			$flows = $this->updateTextItService( array(), 'flows.json', 'GET' );
 			
@@ -1098,18 +1434,16 @@ class e20rTextitIntegration {
 		if ( false === $active ) {
 			$active = array();
 		}
+		$this->util->log( ( "Have " . count( $active ) . " flows" ) );
 		
-		if ( WP_DEBUG ) {
-		    error_log("Have " . count( $active ) . " flows");
-        }
 		return $active;
 	}
 	
 	/**
 	 * Load and return all groups from the upstream TextIt server
 	 *
-     * @param bool $force
-     *
+	 * @param bool $force
+	 *
 	 * @return array
 	 */
 	private function getGroups( $force = false ) {
@@ -1118,17 +1452,19 @@ class e20rTextitIntegration {
 		
 		if ( true === $force || empty( $groups ) ) {
 			
-			if ( WP_DEBUG ) {
-				error_log( "Forcing load from TextIt Service for Groups" );
+			$this->util->log( "Forcing load from TextIt Service for Groups" );
+			
+			$glist  = $this->updateTextItService( array(), 'groups.json', 'GET' );
+			$groups = array();
+			
+			foreach ( $glist as $group ) {
+				$groups[ $group->name ] = $group;
 			}
 			
-			$groups = $this->updateTextItService( array(), 'groups.json', 'GET' );
 			update_option( 'e20r_textit_groups', $groups, false );
 		}
 		
-		if ( WP_DEBUG ) {
-			error_log("Have " . count( $groups ) . " groups");
-		}
+		$this->util->log( "Have " . count( $groups ) . " groups" );
 		
 		return $groups;
 	}
@@ -1214,11 +1550,12 @@ class e20rTextitIntegration {
 			return false;
 		}
 		
-		$user = get_user_by( "ID", $user_id );
+		$user           = get_user_by( "ID", $user_id );
+		$user->textitid = get_user_meta( $user_id, 'e20r_textit_contact_uuid', true );
 		
 		// Make sure the table is configured
 		if ( empty( $this->table ) ) {
-			$this->setParticipantsTable( $this->loadSettings('user_database' ) );
+			$this->setParticipantsTable( $this->loadSettings( 'user_database' ) );
 		}
 		
 		if ( WP_DEBUG ) {
@@ -1246,6 +1583,10 @@ class e20rTextitIntegration {
 				
 				// $_SESSION['TextIt_UserDetail'] = $record;
 				$this->userRecord = $record;
+				
+				if ( ! empty( $user->textitid ) ) {
+					$this->userRecord->textitid = $user->textitid;
+				}
 				
 				return $record;
 			} else {
@@ -1326,13 +1667,13 @@ class e20rTextitIntegration {
 			
 			// Update the TextIt Service
 			$msg = array(
-				'urns'   => "tel:{$user_info->service_number}",
-				'groups' => array(),
+				'urns' => array( "tel:{$user_info->service_number}" ),
 			);
 			
-			if ( false === ( $response = $this->updateTextItService( $msg ) ) ) {
-				
-				$this->util->set_notice( __( "Unable to unsubscribe user from TextIt service", "e20r-textit-integration" ), "error" );
+			if ( false === ( $response = $this->updateTextItService( $msg, 'contacts.json', 'DELETE', $user_info->textitid ) ) ) {
+				$msg = __( "Unable to unsubscribe user from TextIt service", "e20r-textit-integration" );
+				$this->util->set_notice( $msg, "error" );
+				$this->util->log( $msg );
 				
 				return false;
 			}
@@ -1340,8 +1681,9 @@ class e20rTextitIntegration {
 			$where = array( 'id' => $user_info->id );
 			
 			if ( false === $this->_deleteUserRecord( $user_id, $where ) ) {
-				
-				$this->util->set_notice( __( "Unable to update your database record. Please report this to the webmaster!", 'e20r-textit-integration' ), 'error' );
+				$msg = __( "Unable to update your database record. Please report this to the webmaster!", 'e20r-textit-integration' );
+				$this->util->set_notice( $msg, 'error' );
+				$this->util->log( $msg );
 				
 				return false;
 			}
@@ -1373,7 +1715,7 @@ class e20rTextitIntegration {
 		}
 		
 		if ( empty( $this->userRecord ) || false !== strcmp( $this->userRecord->user_id, $user->user_email ) ) {
-			$this->loadUserDBInfo( $user->user_email );
+			$this->getUserRecord( $user->ID );
 		}
 		
 		if ( empty( $this->userRecord->id ) ) {
@@ -1429,7 +1771,7 @@ class e20rTextitIntegration {
 	 *
 	 * @return  e20rTextitIntegration A single instance of this class.
 	 */
-	static function get_instance() {
+	static public function get_instance() {
 		
 		if ( null === self::$instance ) {
 			self::$instance = new self;
