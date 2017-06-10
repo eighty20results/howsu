@@ -3,7 +3,7 @@
 Plugin Name: E20R HowsU/Text-It Messaging Service integration
 Plugin URI: http://eighty20results.com/wordpress-plugins/e20r-textit-integration/
 Description: howsu.today website integration for the textit.in SMS/Voice messaging service
-Version: 2.0.2
+Version: 2.0.3
 Requires: 4.7
 Tested: 4.7.5
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
@@ -37,7 +37,7 @@ if ( ! defined( 'HOWSU_PLUGIN_URL' ) ) {
 }
 
 if ( ! defined( 'E20RTEXTIT_VER' ) ) {
-	define( 'E20RTEXTIT_VER', '2.0.2' );
+	define( 'E20RTEXTIT_VER', '2.0.3' );
 }
 
 class e20rTextitIntegration {
@@ -123,6 +123,11 @@ class e20rTextitIntegration {
 		add_action( 'plugins_loaded', array( $this, 'loadHooks' ) );
 	}
 	
+	/**
+	 * Debug page for data from TextIt service
+	 *
+	 * @return string
+	 */
 	public function listFlows() {
 		
 		$flows  = $this->getFlows();
@@ -325,7 +330,7 @@ class e20rTextitIntegration {
 				
 				return false;
 			}
-   
+			
 			$urn_info = array( "tel: {$user_info->service_number}" );
 			
 			$this->util->log( "Updated user record with successful TextIt record load. Now sending welcome message to {$user_info->textitid}" );
@@ -407,6 +412,15 @@ class e20rTextitIntegration {
 		}
 	}
 	
+	/**
+	 * Using the HowsU User Data record, configure the Contact info for the TextIt Service
+	 *
+	 * @param array $user_info
+	 * @param array $group_list
+	 * @param array $flow_config
+	 *
+	 * @return array
+	 */
 	private function configureTextItRecord( $user_info, $group_list, $flow_config ) {
 		
 		$field_config = $this->loadSettings( 'field_map' );
@@ -420,8 +434,24 @@ class e20rTextitIntegration {
 		
 		foreach ( $field_config as $tField => $dbField ) {
 			
-			if ( isset( $user_info->{$dbField} ) ) {
-				$textit_record['fields'][ $tField ] = $user_info->{$dbField};
+			/** Safely load the flowtype info and configure it for all registered users when processing them */
+			if ( $field_config[ $tField ] == 'default' ) {
+				
+				$this->util->log( "Field {$tField} needs to use default value" );
+				
+				if ( 'flowtype' === $tField ) {
+					$this->util->log( "Configuring for default flow type/Service type!" );
+					$services                           = $this->availableServices();
+					$type_key                           = $this->_process_text( $user_info->service_type );
+					$textit_record['fields'][ $tField ] = $services[ $type_key ]['type'];
+				} else {
+					$textit_record['fields'][ $tField ] = $this->defaultFieldValue( $tField );
+				}
+			} else {
+				
+				if ( isset( $user_info->{$dbField} ) ) {
+					$textit_record['fields'][ $tField ] = $user_info->{$dbField};
+				}
 			}
 		}
 		
@@ -450,7 +480,7 @@ class e20rTextitIntegration {
 		
 		if ( $data === false ) {
 			
-			$msg = __( "Unable to send the welcome message to the new user!", "e20r-textit-integration" );
+			$msg = __( "Unable to start the {$flow_type} flow for the new user!", "e20r-textit-integration" );
 			$this->util->set_notice( $msg, 'error' );
 			$this->util->log( $msg );
 			
@@ -506,19 +536,33 @@ class e20rTextitIntegration {
 			$this->util->log( "Including user info for TextIt Service: " . print_r( $textit_record['fields'], true ) );
 			
 			$data = array(
+				'urns' => array( "tel:{$user_info->service_number}" ),
+			);
+			
+			$contact_status = $this->updateTextItService( $data, 'contacts.json', 'GET', $user_uuid );
+			
+			if ( ! empty( $contact_status ) ) {
+				$this->util->log( "Returned status from check: " . print_r( $contact_status->results[0]->blocked, true ) );
+				
+				if ( true === $contact_status->results[0]->blocked || true === $contact_status->results[0]->stopped ) {
+					$this->util->log( "User {$user_id} is blocked/stopped on TextIt Service. Need to unblock before resuming!" );
+					
+					$data = array(
+						'contacts' => array( "tel:{$user_info->service_number}" ),
+						'action'   => 'unblock',
+					);
+					
+					$status = $this->updateTextItService( $data, 'contact_actions.json', 'POST' );
+				}
+			}
+			
+			$data = array(
 				'urns'   => array( "tel:{$user_info->service_number}" ),
 				'groups' => $group_list,
 				'fields' => $textit_record['fields'],
 			);
 			
 			$status = $this->updateTextItService( $data, 'contacts.json', 'POST', $user_uuid );
-			
-			$data = array(
-				'contacts' => array( "tel:{$user_info->service_number}" ),
-				'action'   => 'unblock',
-			);
-			
-			$status = $this->updateTextItService( $data, 'contact_actions.json', 'POST' );
 			
 			if ( false !== ( $response = $this->sendMessage( 'welcomemessage', array( "tel:{$user_info->service_number}" ) ) ) ) {
 				
@@ -630,6 +674,16 @@ class e20rTextitIntegration {
 		wp_send_json_success();
 	}
 	
+	/**
+	 * Transmit data to the TextIt Service
+	 *
+	 * @param null|array  $body
+	 * @param string      $json_file
+	 * @param string      $operation
+	 * @param null|string $user_uuid
+	 *
+	 * @return array|bool|mixed|object
+	 */
 	public function updateTextItService( $body = null, $json_file = "contacts.json", $operation = 'POST', $user_uuid = null ) {
 		
 		$request = array(
@@ -744,7 +798,7 @@ class e20rTextitIntegration {
 		
 		if ( $force === true || empty( $fields ) ) {
 			
-			$data = $this->updateTextItService( null, 'fields.json', 'GET' );
+			$data   = $this->updateTextItService( null, 'fields.json', 'GET' );
 			$fields = isset( $data->results ) ? $data->results : array();
 			
 			if ( ! empty( $fields ) ) {
@@ -843,6 +897,13 @@ class e20rTextitIntegration {
 		return $groups;
 	}
 	
+	/**
+	 * Select the UUID value(s) for the specified TextIt group(s)
+	 *
+	 * @param array $groups
+	 *
+	 * @return array
+	 */
 	private function _getGroupUUIDsFromName( $groups = array() ) {
 		
 		$cached_groups = $this->getGroups();
@@ -1091,6 +1152,9 @@ class e20rTextitIntegration {
 		
 	}
 	
+	/**
+	 * Descriptive text for the TextIt/HowsU User Record map
+	 */
 	public function renderDataMapSection() {
 		?>
         <p class="e20r-textit-settings-text">
@@ -1099,6 +1163,11 @@ class e20rTextitIntegration {
 		<?php
 	}
 	
+	/**
+	 * Generate the settings fields for TextIt Flow and Group for each HowsU Service
+	 *
+	 * @param array $settings
+	 */
 	public function renderDataFieldMap( $settings ) {
 		
 		
@@ -1147,6 +1216,15 @@ class e20rTextitIntegration {
 		<?php
 	}
 	
+	/**
+	 * Render map settings for TextIt Contact fields -> HowsU User Database Record values
+	 *
+	 * @param string $option_name
+	 * @param string $key
+	 * @param array  $dbFields
+	 *
+	 * @return string
+	 */
 	private function renderDBFieldList( $option_name, $key, $dbFields ) {
 		
 		$field_map = $this->loadSettings( $option_name );
@@ -1162,6 +1240,7 @@ class e20rTextitIntegration {
 		// $html .= sprintf( '<input type="hidden" value="%1$s" name="%2$s" />', $key, "{$this->settings_name}[{$option_name}][]" );
 		$html .= sprintf( '<select class="e20r_textit_dbmap" id="%1$s" name="%2$s">', "e20r_textit_dbmap-{$key}", "{$this->settings_name}[{$option_name}][$key]" );
 		$html .= sprintf( '  <option value="%1$s" %2$s>%3$s</option>', '-1', ( isset( $field_map[ $key ] ) ? selected( $field_map[ $key ], '-1', false ) : null ), __( 'Ignore', 'e20r-textit-integration' ) );
+		$html .= sprintf( '  <option value="%1$s" %2$s>%3$s</option>', 'default', ( isset( $field_map[ $key ] ) ? selected( $field_map[ $key ], 'default', false ) : null ), __( 'Default', 'e20r-textit-integration' ) );
 		foreach ( $dbFields as $field => $type ) {
 			$html .= sprintf( '   <option value="%1$s" %2$s>%3$s</option>', $field, ( isset( $field_map[ $key ] ) ? selected( $field_map[ $key ], $field, false ) : null ), esc_attr( $field ) . " ( " . esc_attr( $type ) . " )" );
 		}
@@ -1170,6 +1249,11 @@ class e20rTextitIntegration {
 		return $html;
 	}
 	
+	/**
+	 * Default values for the TextIt Contact fields -> HowsU User Info record
+	 *
+	 * @return array
+	 */
 	private function defaultFieldMap() {
 		
 		return array(
@@ -1190,6 +1274,33 @@ class e20rTextitIntegration {
 		);
 	}
 	
+	/**
+	 * Seelct the default value for a specific database/TextIt Contact field
+	 *
+	 * @param string $field_name
+	 *
+	 * @return mixed
+	 */
+	private function defaultFieldValue( $field_name ) {
+		
+		$value = null;
+		
+		switch ( $field_name ) {
+			case 'flowtype':
+				$value = 'flow';
+				break;
+		}
+		
+		return $value;
+	}
+	
+	/**
+	 * Map TextIt Contact fields to Participants Database field
+	 *
+	 * @param string $column
+	 *
+	 * @return int|string
+	 */
 	private function _mapTextItColumns( $column ) {
 		
 		$textit_cols = $this->loadSettings( 'field_map' );
@@ -1205,6 +1316,11 @@ class e20rTextitIntegration {
 		return $column;
 	}
 	
+	/**
+	 * TextIt Service API Access key
+	 *
+	 * @param array $settings
+	 */
 	public function renderKeyField( $settings ) {
 		$key = $this->loadSettings( $settings['option_name'] );
 		
@@ -1302,10 +1418,10 @@ class e20rTextitIntegration {
 	/**
 	 * Generate the input fields for the specific TextIt/HowsU setting
 	 *
-	 * @param $serviceKey
-	 * @param $settings
-	 * @param $upstream_flows
-	 * @param $groups
+	 * @param string $serviceKey
+	 * @param array  $settings
+	 * @param array  $upstream_flows
+	 * @param array  $groups
 	 */
 	private function renderServiceEntry( $serviceKey, $settings, $upstream_flows, $groups ) {
 		
@@ -1419,7 +1535,7 @@ class e20rTextitIntegration {
 			$this->util->log( "Forcing load from TextIt Service for Flows" );
 			
 			$results = $this->updateTextItService( array(), 'flows.json', 'GET' );
-			$flows = isset( $results->results ) ? $results->results : array();
+			$flows   = isset( $results->results ) ? $results->results : array();
 			
 			$active = array();
 			
@@ -1433,7 +1549,7 @@ class e20rTextitIntegration {
 				$active[] = $data;
 			}
 			
-			if ( !empty( $active ) ) {
+			if ( ! empty( $active ) ) {
 				update_option( 'e20r_textit_flows', $active, false );
 			}
 		}
@@ -1461,7 +1577,7 @@ class e20rTextitIntegration {
 			
 			$this->util->log( "Forcing load from TextIt Service for Groups" );
 			
-			$data = $this->updateTextItService( array(), 'groups.json', 'GET' );
+			$data  = $this->updateTextItService( array(), 'groups.json', 'GET' );
 			$glist = isset( $data->results ) ? $data->results : array();
 			
 			$groups = array();
@@ -1470,7 +1586,7 @@ class e20rTextitIntegration {
 				$groups[ $group->name ] = $group;
 			}
 			
-			if ( !empty( $groups ) ) {
+			if ( ! empty( $groups ) ) {
 				update_option( 'e20r_textit_groups', $groups, false );
 			}
 		}
@@ -1501,6 +1617,13 @@ class e20rTextitIntegration {
 		return $table_list;
 	}
 	
+	/**
+	 * Use HowsU Service Level info to select the WordPress role for the user
+	 *
+	 * @param string $service_level
+	 *
+	 * @return string
+	 */
 	private function _getRoleName( $service_level ) {
 		
 		$role = $this->_process_text( $service_level );
@@ -1512,11 +1635,25 @@ class e20rTextitIntegration {
 		return $role;
 	}
 	
+	/**
+	 * Strip whitespace from strings
+	 *
+	 * @param string $text
+	 *
+	 * @return string
+	 */
 	public function _process_text( $text ) {
 		
 		return strtolower( preg_replace( '/\s/', '', $text ) );
 	}
 	
+	/**
+	 * Map of Service Levels/Membership Levels used by HowsU service
+	 *
+	 * @param array $map
+	 *
+	 * @return array
+	 */
 	public function defaultLevelMap( $map = array() ) {
 		
 		if ( empty( $map ) ) {
@@ -1530,29 +1667,46 @@ class e20rTextitIntegration {
 		return $map;
 	}
 	
+	/**
+	 * Map user
+	 * @return array
+	 */
 	public function membershipLevelMap() {
 		
-		$levels = pmpro_getAllLevels( true, true );
-		$map    = array();
+		$map = array();
 		
-		foreach ( $levels as $id => $level ) {
+		if ( function_exists( 'pmpro_getAllLevels' ) ) {
 			
-			$lname = $this->_process_text( $level->name );
+			$levels = pmpro_getAllLevels( true, true );
 			
-			if ( false !== strpos( $lname, 'weekend' ) ) {
-				$lname = 'weekend';
+			foreach ( $levels as $id => $level ) {
+				
+				$lname = $this->_process_text( $level->name );
+				
+				if ( false !== strpos( $lname, 'weekend' ) ) {
+					$lname = 'weekend';
+				}
+				
+				$map[ $this->_process_text( $level->name ) ] = array(
+					'id'   => $id,
+					'name' => $level->name,
+					'key'  => $lname,
+				);
 			}
 			
-			$map[ $this->_process_text( $level->name ) ] = array(
-				'id'   => $id,
-				'name' => $level->name,
-				'key'  => $lname,
-			);
 		}
 		
 		return $map;
 	}
 	
+	/**
+	 * Get HowsU user data record from the specified Database Table (default is Participants Database user data table)
+	 *
+	 * @param int  $user_id
+	 * @param bool $force
+	 *
+	 * @return mixed
+	 */
 	public function getUserRecord( $user_id, $force = false ) {
 		
 		global $wpdb;
@@ -1610,6 +1764,15 @@ class e20rTextitIntegration {
 		return false;
 	}
 	
+	/**
+	 * Save the HowsU User data record to the database
+	 *
+	 * @param int   $user_id
+	 * @param array $record
+	 * @param array $where
+	 *
+	 * @return bool|mixed
+	 */
 	public function updateUserRecord( $user_id, $record = array(), $where = array() ) {
 		
 		global $wpdb;
@@ -1636,6 +1799,14 @@ class e20rTextitIntegration {
 		return false;
 	}
 	
+	/**
+	 * Delete the specified HowsU User Database record
+	 *
+	 * @param int   $user_id
+	 * @param array $where
+	 *
+	 * @return bool
+	 */
 	private function _deleteUserRecord( $user_id, $where ) {
 		
 		global $wpdb;
@@ -1711,6 +1882,13 @@ class e20rTextitIntegration {
 		}
 	}
 	
+	/**
+	 * Show the Membership ID (Shortcode handler)
+	 *
+	 * @param array $atts
+	 *
+	 * @return null|string
+	 */
 	public function displayMembershipId( $atts = array() ) {
 		
 		global $current_user;
@@ -1754,6 +1932,13 @@ class e20rTextitIntegration {
 		return ob_get_clean();
 	}
 	
+	/**
+	 * Display Welcome message on HowsU Membership page
+	 *
+	 * @param array $attrs
+	 *
+	 * @return string
+	 */
 	public function displayWelcomeMessage( $attrs = array() ) {
 		
 		global $current_user;
@@ -1791,6 +1976,11 @@ class e20rTextitIntegration {
 		return self::$instance;
 	}
 	
+	/**
+	 * Verify presence of and select the HowsU User Database table
+	 *
+	 * @param string $name
+	 */
 	public function setParticipantsTable( $name ) {
 		
 		global $wpdb;
@@ -1821,6 +2011,12 @@ class e20rTextitIntegration {
 	 */
 	public function paymentFailed( $old_order ) {
 		
+	    if ( ! function_exists( 'pmpro_changeMembershipLevel' ) ) {
+	        $this->util->log("Error: PMPro is no longer active on the site!");
+	        $this->util->set_notice( __("Paid Memberships Pro is missing or inactive. Please activate Paid Memberships Pro!", "e20r-textit-integraion"), 'error' );
+	        return;
+        }
+        
 		if ( false === pmpro_changeMembershipLevel( false, $old_order->user_id ) ) {
 			
 			$admin_email = apply_filters( 'e20r_textit_admin_email_addr', array( get_option( 'admin_email' ) ) );
@@ -1929,7 +2125,14 @@ class e20rTextitIntegration {
 		$this->userRecord = null;
 	}
 	
-	
+	/**
+	 * Update the user's record on the EverLive Service (Dormant serice for HowsU)
+	 *
+	 * @param $action
+	 * @param $id
+	 *
+	 * @return bool
+	 */
 	public function updateEverliveService( $action, $id ) {
 		
 		$request = array(
@@ -1966,6 +2169,11 @@ class e20rTextitIntegration {
 	 */
 	function avoidLevelsPage() {
 		
+		if ( ! function_exists( 'pmpro_getMembershipLevelForUser' ) ) {
+			$this->util->log("Error: PMPro is no longer active on the site!");
+			$this->util->set_notice( __("Paid Memberships Pro is missing or inactive. Please activate Paid Memberships Pro!", "e20r-textit-integraion"), 'error' );
+			return;
+		}
 		
 		global $current_user;
 		global $post;
@@ -1994,6 +2202,9 @@ class e20rTextitIntegration {
 		}
 	}
 	
+	/**
+	 * Load the TextIt Integration CSS and JavaScript resources
+	 */
 	public function loadScriptStyle() {
 		
 		// PDB template pages:
@@ -2045,79 +2256,20 @@ class e20rTextitIntegration {
 		}
 	}
 	
-	/*
-	public function old_updateTextit( $snu, $col, $val, $wpdb ) {
-//  *********************   Load new contact onto TextIt ***********************************
-
-		$groupArray = array();
-		$myrows     = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}participants_database WHERE Id = " . $_POST['pdb'] );
-
-		$_SESSION['TextIt_UserDetail'] = $myrows;
-
-		if ( $col == 'time_window' || $col == 'time_window_2' || $col == 'time_window_3' ) {
-
-			if ( $col == "time_window" ) {
-				$group1     = $myrows[0]->service_level . substr( $val, 0, 2 );
-				$group2     = $myrows[0]->service_level . substr( $myrows[0]->time_window_2, 0, 2 );
-				$group3     = $myrows[0]->service_level . substr( $myrows[0]->time_window_3, 0, 2 );
-				$groupArray = array( $group1, $group2, $group3 );
-
-			} elseif ( $col == "time_window_2" ) {
-				$group1     = $myrows[0]->service_level . substr( $myrows[0]->time_window, 0, 2 );
-				$group2     = $myrows[0]->service_level . substr( $val, 0, 2 );
-				$group3     = $myrows[0]->service_level . substr( $myrows[0]->time_window_3, 0, 2 );
-				$groupArray = array( $group1, $group2, $group3 );
-
-			} else {
-				$group1     = $myrows[0]->service_level . substr( $myrows[0]->time_window, 0, 2 );
-				$group2     = $myrows[0]->service_level . substr( $myrows[0]->time_window_2, 0, 2 );
-				$group3     = $myrows[0]->service_level . substr( $val, 0, 2 );
-				$groupArray = array( $group1, $group2, $group3 );
-			}
-
-			$data = array(
-				'urns'   => 'tel:' . $snu,
-				'groups' => $groupArray
-			);
-
-		} else {
-
-			$map = array(
-				'flow Type'         => 'flow',
-				'elapsed time'      => 'Elapsed',
-				'firstname'         => 'first_name',
-				'lastname'          => 'last_name',
-				'address'           => 'address',
-				'city'              => 'city',
-				'postcode'          => 'zip',
-				'telephone'         => 'phone',
-				'contact 1 name'    => 'full_name_c1',
-				'contact 1 phone'   => 'contact_number_c1',
-				'contact 1 email'   => 'email_c1',
-				'contact 2 name'    => 'full_name_2',
-				'contact 2 phone 2' => 'contact_number_2_2',
-				'contact 2 email'   => 'email'
-			);
-
-			foreach ( $map as $field => $value ) {
-				if ( $col == $value ) {
-					$col = $field;
-				}
-			}
-
-			$data = array(
-				'urns'   => 'tel:' . $snu,
-				'fields' => array(
-					$col => $val
-				)
-			);
-		}
-
-		return $this->updateTextItService( $data );
-
-	}
-*/
+	/**
+	 * Redirect a user to the Register page on login if not a valid/active user
+	 *
+	 * @param string $redirect_to
+	 *
+	 * @return string
+	 */
 	public function loginRedirectHandler( $redirect_to ) {
+		
+		if ( ! function_exists( 'pmpro_url' ) ) {
+			$this->util->log("Error: PMPro is no longer active on the site!");
+			$this->util->set_notice( __("Paid Memberships Pro is missing or inactive. Please activate Paid Memberships Pro!", "e20r-textit-integraion"), 'error' );
+			return $redirect_to;
+		}
 		
 		//is there a user to check?
 		global $current_user;
@@ -2145,6 +2297,9 @@ class e20rTextitIntegration {
 		
 	}
 	
+	/**
+	 * Define required WordPress/Paid Memberships Pro/PDB hooks/filters being used
+	 */
 	public function loadHooks() {
 		
 		$this->util = e20rUtils::get_instance();
@@ -2203,6 +2358,9 @@ class e20rTextitIntegration {
 	
 	}
 	
+	/**
+	 * Styles for the Settings page (/wp-admin/)
+	 */
 	public function enqueueOptionStyles() {
 		wp_enqueue_style( 'e20r-textit-options', plugins_url( 'css/e20r-textit-admin-options.css', __FILE__ ), null, E20RTEXTIT_VER );
 		wp_enqueue_script( 'e20r-textit-options', plugins_url( 'js/e20r-textit-options.js', __FILE__ ), array( 'jquery' ), E20RTEXTIT_VER );
