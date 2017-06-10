@@ -1,1 +1,1 @@
-<h3>2.0.2</h3><ol><li>BUG/FIX: Didn't include CSS in build</li></ol>
+<h3>2.0.3</h3><ol><li>ENHANCEMENT: Allow field configuration to use default value (defined in defaultFieldValue() method)</li><li>ENHANCEMENT/FIX: Don't attempt to update the TextIt Contact record before it's reactivated again</li><li>ENHANCEMENT/FIX: Fatal error if PMPro isn't active/installed</li><li>ENHANCEMENT: Adding PHPDoc for all methods</li><li>BUG/FIX: Ensure the flowtype is configured for the user/contact upon transmission to TextIt servers</li></ol>

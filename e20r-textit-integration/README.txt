@@ -2,8 +2,8 @@
 Contributors: sjolshag
 Tags: TextIt, memberships, paid memberships pro
 Requires at least: 4.7
-Tested up to: 4.7.5
-Stable tag: 2.0.2
+Tested up to: 4.8
+Stable tag: 2.0.3
 
 Eighty/20 Results - TextIt/PMPro Service interface
 
@@ -33,6 +33,14 @@ operations plus pause/resume of TextIt services based on membership events or me
 2. Activate the plugin through the 'Plugins' menu in WordPress.
 
 == Changelog ==
+
+== 2.0.3 ==
+
+* ENHANCEMENT: Allow field configuration to use default value (defined in defaultFieldValue() method)
+* ENHANCEMENT/FIX: Don't attempt to update the TextIt Contact record before it's reactivated again
+* ENHANCEMENT/FIX: Fatal error if PMPro isn't active/installed
+* ENHANCEMENT: Adding PHPDoc for all methods
+* BUG/FIX: Ensure the flowtype is configured for the user/contact upon transmission to TextIt servers
 
 == 2.0.2 ==
 
