@@ -21,7 +21,7 @@
 function e20r_verify_user( $user, $username, $password ) {
 
 	/* page_id = 975 - /login/ */
-	$login_page = add_query_arg( array( 'login' => 'empty' ), home_url( '/login/' ) );
+	$login_page = add_query_arg( array( 'login' => '' ), home_url( '/login/' ) );
 
 	if (empty( $username) || empty($password)) {
 
@@ -45,7 +45,7 @@ add_action( 'wp_login_failed', 'e20r_auth_failure', 10 );
 
 function e20r_redirect_to_custom() {
 
-	$login_page = add_query_arg( array( 'login' => null ), home_url( '/login/' ) );
+	$login_page = add_query_arg( array( 'login' => '' ), home_url( '/login/' ) );
 	$page_viewed = basename($_SERVER['REQUEST_URI']);
 
 	if ( stripos( $page_viewed, 'login' ) ) {
@@ -82,8 +82,8 @@ function e20r_login($atts)
 
 	if (is_user_logged_in()) {
 
-		if (empty( $pdb_row ) ) {
-			wp_redirect('/service-details/');
+		if (empty( $pdb_row ) && !current_user_can( 'manage_options' ) ) {
+			wp_redirect( home_url( '/service-details/' ) );
 		} else {
 			$url = add_query_arg( 'pid', $pdb_row->id, get_permalink( $pmpro_pages['account']) );
 			wp_safe_redirect($url);
@@ -95,7 +95,7 @@ function e20r_login($atts)
 
 		$prompt = null;
 
-		if( isset($_GET['login']) && !empty($_GET['login']) ){
+		if( isset($_REQUEST['login']) && !empty($_REQUEST['login']) ){
 
 			/*
 			if ( 'empty' == $_GET['login'] && isset($_POST['pwd']) && empty( $_POST['pwd'] ) ) {
@@ -106,7 +106,7 @@ function e20r_login($atts)
 				$prompt = __( "Sorry! You need to use a valid email address.  Please try again." );
 			}
 			*/
-			if ( 'failed' == $_GET['login'] || 'empty' == $_GET['login'] ) {
+			if ( 'failed' == $_REQUEST['login'] || empty( $_REQUEST['login'] ) ) {
 				$prompt = __( "Sorry! We experienced an authentication error.  Please try again." );
 			}
 
@@ -122,7 +122,7 @@ function e20r_login($atts)
 			array(
 				'remember' => true,
 				// 'redirect' => (is_ssl() ? 'https://' : 'http://' ) . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
-				'redirect' => site_url( $_SERVER['REQUEST_URI'] ),
+				'redirect' => home_url( $_SERVER['REQUEST_URI'] ),
 				'form_id' => 'loginform',
 				'id_email' => 'user_email',
 				'id_password' => 'user_pass',
