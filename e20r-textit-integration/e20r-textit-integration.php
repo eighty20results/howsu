@@ -3,7 +3,7 @@
 Plugin Name: E20R HowsU/Text-It Messaging Service integration
 Plugin URI: http://eighty20results.com/wordpress-plugins/e20r-textit-integration/
 Description: howsu.today website integration for the textit.in SMS/Voice messaging service
-Version: 2.0.3
+Version: 2.0.4
 Requires: 4.7
 Tested: 4.7.5
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
@@ -37,7 +37,7 @@ if ( ! defined( 'HOWSU_PLUGIN_URL' ) ) {
 }
 
 if ( ! defined( 'E20RTEXTIT_VER' ) ) {
-	define( 'E20RTEXTIT_VER', '2.0.3' );
+	define( 'E20RTEXTIT_VER', '2.0.4' );
 }
 
 class e20rTextitIntegration {
@@ -119,8 +119,6 @@ class e20rTextitIntegration {
 		}
 		
 		$this->pdb_page_list = apply_filters( 'textit_pdb_page_list', $this->pdb_page_list );
-		
-		add_action( 'plugins_loaded', array( $this, 'loadHooks' ) );
 	}
 	
 	/**
@@ -396,9 +394,9 @@ class e20rTextitIntegration {
 				), array( 'id' => $user_info->id ) )
 			) {
 				$msg = __( "Failed to update the user's database record after welcome message retry", "e20r-textit-integration" );
+				$this->util->log( $msg );
 				$this->util->set_notice( $msg, 'error' );
-				$this->log( $msg );
-				
+    
 				return false;
 			}
 			
@@ -1030,6 +1028,7 @@ class e20rTextitIntegration {
 					break;
 				default:
 					if ( $service === 'welcomemessage' ) {
+					    //63c42285-f938-4528-9274-40419028d5db
 						$default_service_mappings[ $service ]['group_uuid'] = '607571ed-125c-432c-a2dc-ebf93539357a';
 						$default_service_mappings[ $service ]['flow_id']    = '63c42285-f938-4528-9274-40419028d5db';
 					}
@@ -1461,20 +1460,29 @@ class e20rTextitIntegration {
 	public function availableServices( $serviceList = array() ) {
 		
 		$serviceList['telephonecall']     = array(
-			'label' => __( "Telephone Call (IVR)", "e20r-textit-integration" ),
+			'label' => __( "Telephone Call - IVR (Flow: TEL)", "e20r-textit-integration" ),
 			'type'  => 'TEL',
 		);
 		$serviceList['smstext']           = array(
-			'label' => __( "SMS/Text Message", "e20r-textit-integration" ),
+			'label' => __( "SMS/Text Message (Flow: SMS)", "e20r-textit-integration" ),
 			'type'  => 'SMS',
 		);
 		$serviceList['facebookmessenger'] = array(
-			'label' => __( "Facebook Messenger", "e20r-textit-integration" ),
+			'label' => __( "Facebook Messenger (Flow: FBM)", "e20r-textit-integration" ),
 			'type'  => 'FBM',
 		);
 		$serviceList['welcomemessage']    = array(
-			'label' => __( "Welcome Message", "e20r-textit-integration" ),
+			'label' => __( "Welcome Message (Flow: welcomemessage)", "e20r-textit-integration" ),
 			'type'  => '',
+		);
+		$serviceList['twitter']           = array(
+			'label' => __( "Twitter Message (Flow: TWIT)", "e20r-textit-integration" ),
+			'type'  => 'TWIT',
+		);
+		
+		$serviceList['telegram']           = array(
+			'label' => __( "Telegram (Flow: GRAM)", "e20r-textit-integration" ),
+			'type'  => 'GRAM',
 		);
 		
 		// $serviceList['twitter'] = __( "Twitter Message", "e20r-textit-integration" );
@@ -1971,6 +1979,8 @@ class e20rTextitIntegration {
 		
 		if ( null === self::$instance ) {
 			self::$instance = new self;
+			
+			self::$instance->loadHooks();
 		}
 		
 		return self::$instance;
@@ -2433,7 +2443,7 @@ class e20rTextitIntegration {
 	 *
 	 * @param string $class_name Name of the class being attempted loaded.
 	 */
-	public function __class_loader( $class_name ) {
+	public static function __class_loader( $class_name ) {
 		
 		$plugin_classes = array(
 			'e20rutils',
@@ -2468,7 +2478,10 @@ class e20rTextitIntegration {
 	} // End of autoloader method
 }
 
-spl_autoload_register( array( e20rTextitIntegration::get_instance(), '__class_loader' ) );
+spl_autoload_register( 'e20rTextitIntegration::__class_loader' );
+
+add_action( 'plugins_loaded', 'e20rTextitIntegration::get_instance' );
+
 register_activation_hook( __FILE__, 'e20rTextitIntegration::configureRoles' );
 
 if ( ! class_exists( '\\PucFactory' ) ) {
