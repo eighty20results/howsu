@@ -3,7 +3,7 @@ Contributors: sjolshag
 Tags: TextIt, memberships, paid memberships pro
 Requires at least: 4.7
 Tested up to: 4.8
-Stable tag: 2.0.3
+Stable tag: 2.1
 
 Eighty/20 Results - TextIt/PMPro Service interface
 
@@ -33,6 +33,14 @@ operations plus pause/resume of TextIt services based on membership events or me
 2. Activate the plugin through the 'Plugins' menu in WordPress.
 
 == Changelog ==
+
+== 2.1 ==
+
+* BUG FIX/ENHANCEMENT: Any existing Contact record on TextIt server is now updated on checkout (for user).
+
+== 2.0.4 ==
+
+* ENHANCEMENT: Various updates & bug fixes
 
 == 2.0.3 ==
 
