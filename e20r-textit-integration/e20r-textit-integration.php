@@ -3,7 +3,7 @@
 Plugin Name: E20R HowsU/Text-It Messaging Service integration
 Plugin URI: http://eighty20results.com/wordpress-plugins/e20r-textit-integration/
 Description: howsu.today website integration for the textit.in SMS/Voice messaging service
-Version: 2.0.4
+Version: 2.1
 Requires: 4.7
 Tested: 4.7.5
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
@@ -37,7 +37,7 @@ if ( ! defined( 'HOWSU_PLUGIN_URL' ) ) {
 }
 
 if ( ! defined( 'E20RTEXTIT_VER' ) ) {
-	define( 'E20RTEXTIT_VER', '2.0.4' );
+	define( 'E20RTEXTIT_VER', '2.1' );
 }
 
 class e20rTextitIntegration {
@@ -228,7 +228,7 @@ class e20rTextitIntegration {
 	 * @param      $user_info
 	 * @param null $group_list
 	 *
-	 * @return bool
+	 * @return bool|\stdClass
 	 */
 	public function isUserRegistered( $user_info, $group_list = null ) {
 		
@@ -246,7 +246,14 @@ class e20rTextitIntegration {
 		
 		$this->util->log( "Returned status for {$user_info->service_number}: " . print_r( $status, true ) );
 		
-		return ( isset( $status->results ) && ! empty( $status->results ) );
+		if (  isset( $status->results[0] ) && ! empty( $status->results[0] ) ) {
+		    $this->util->log("Will return the user record data from the test");
+		    $retval = $status->results[0];
+        } else {
+		    $retval = false;
+        }
+		
+		    return $retval;
 	}
 	
 	/**
@@ -273,6 +280,9 @@ class e20rTextitIntegration {
 			return false;
 		}
 		
+		// get the service configuration
+		$flow_config = $this->_getFlowConfig( $user_info->service_type );
+		
 		$this->util->log( "User record for {$user_id} is: " . print_r( $user_info, true ) );
 		
 		// Generate the correct role name & set it for the specified user.
@@ -280,10 +290,7 @@ class e20rTextitIntegration {
 		$user->set_role( $role_name );
 		
 		$this->util->log( "Configured {$role_name} role for user {$user->user_email}" );
-		
-		// get the service configuration
-		$flow_config = $this->_getFlowConfig( $user_info->service_type );
-		
+  
 		// Save the membership number (service number) and other metadata for the user.
 		update_user_meta( $user_id, 'member_number', $user_info->service_number );
 		update_user_meta( $user_id, 'first_name', $user_info->first_name );
@@ -295,26 +302,44 @@ class e20rTextitIntegration {
 		$this->util->log( "TextIt Group info: " . print_r( $group_list, true ) );
 		
 		if ( empty( $user_info->service_number ) ) {
+		 
 			$msg = sprintf( __( "Cannot start TextIt Service for %s: Err-InvalidServiceNumber", "e20r-textit-integration" ), $user->display_name );
 			$this->util->set_notice( $msg, 'error' );
 			$this->util->log( $msg );
 		}
 		
+		$this->util->log("Processing the user record to send to TextIt...");
 		$textit_record = $this->configureTextItRecord( $user_info, $group_list, $flow_config );
 		
 		$this->util->log( "Loading user info to TextIt Service: " . print_r( $textit_record['fields'], true ) );
 		
 		$is_registered = $this->isUserRegistered( $user_info, $group_list );
 		
-		$this->util->log( "User is registered? " . ( isset( $is_registered->results ) && ! empty( $is_registered->results ) ? 'Yes' : 'No' ) );
+		$this->util->log( "User is registered? " . ( ! empty( $is_registered ) ? 'Yes' : 'No' ) );
 		
-		// Add new user record to the TextIt Service
-		if ( ! empty( $is_registered ) || ( empty( $is_registered ) && ( false !== ( $data = $this->updateTextItService( $textit_record ) ) ) ) ) {
-			
+		// Manage user record to the TextIt Service (can try adding if none exists)
+		if ( ( ! empty( $is_registered ) ) || ( ( empty( $is_registered ) && ( false !== ( $data = $this->updateTextItService( $textit_record ) ) ) ) ) ) {
+      
+		    // Try updating instead...
+		    if ( empty( $data ) && isset( $is_registered->fields ) ) {
+		        
+		        $this->util->log("User is already registered upstream (on TextIt servers). Need to update them");
+		        $data = $is_registered;
+		        
+		        if ( false === ( $ret = $this->updateTextItService( $textit_record, 'contacts.json','POST', $data->uuid ) ) ) {
+		            $this->util->log("Unable to update the {$data->uuid} contact data on TextIt Server....:" . print_r( $ret, true ));
+		            return false;
+		        } else {
+		            $this->util->log("Update successful for {$data->uuid}: " . print_r( $ret, true ));
+                }
+            }
+            
 			$this->util->log( "Added user info during checkout for {$user_id}" );
 			
 			$u_record = array( 'textitid' => $data->uuid, 'status' => 1, 'onetimefee' => 1 );
 			$where    = array( 'id' => $user_info->id );
+			
+			$this->util->log("Flow Type is now: {$data->fields->flowtype}");
 			
 			// Save the TextIt User UUID (contact record UUID)
 			update_user_meta( $user_id, 'e20r_textit_contact_uuid', $data->uuid );
@@ -367,7 +392,7 @@ class e20rTextitIntegration {
 			// Set the group for the user to request assistance
 			$groups = $this->_getGroupUUIDsFromName( array( 'UserAssistance' ) );
 			
-			$urn_type = strtolower( $user_info->type );
+			// $urn_type = strtolower( $user_info->flowtype );
 			$urn_info = array( "tel: {$user_info->service_number}" );
 			
 			// Retry sending the welcome message?
@@ -421,6 +446,8 @@ class e20rTextitIntegration {
 	 */
 	private function configureTextItRecord( $user_info, $group_list, $flow_config ) {
 		
+	    $this->util->log("Processing TextIt record...");
+	    
 		$field_config = $this->loadSettings( 'field_map' );
 		
 		$textit_record = array(
@@ -437,13 +464,17 @@ class e20rTextitIntegration {
 				
 				$this->util->log( "Field {$tField} needs to use default value" );
 				
-				if ( 'flowtype' === $tField ) {
-					$this->util->log( "Configuring for default flow type/Service type!" );
-					$services                           = $this->availableServices();
-					$type_key                           = $this->_process_text( $user_info->service_type );
-					$textit_record['fields'][ $tField ] = $services[ $type_key ]['type'];
+				if ( 'flowtype' == strtolower( $tField ) ) {
+				 
+					$this->util->log( "Configuring the type/Service type ({$tField} => {$user_info->service_type})" );
+					// $services                           = apply_filters( 'e20r_textit_available_service_options', array() );
+					// $type_key                           = $this->_process_text( $user_info->service_type );
+					$textit_record['fields'][ $tField ] = $flow_config['type'];
+					// $this->util->log("Saving FlowType field ({$tField}): {$services[ $type_key ]['type']}");
+					
 				} else {
 					$textit_record['fields'][ $tField ] = $this->defaultFieldValue( $tField );
+					$this->util->log("Setting default value for {$tField}");
 				}
 			} else {
 				
@@ -472,6 +503,7 @@ class e20rTextitIntegration {
 		$msg = array(
 			'flow' => $flow_settings['flow_id'],
 			'urns' => $who,
+            // 'extra' => array( 'flowtype' => $flow_type ),
 		);
 		
 		$data = $this->updateTextItService( $msg, 'flow_starts.json', 'POST' );
@@ -528,6 +560,7 @@ class e20rTextitIntegration {
 			$group_name    = $this->_getRoleName( $user_info->service_level );
 			$group_list    = $this->_setGroupInfo( $group_name );
 			$flow_config   = $this->_getFlowConfig( $user_info->service_type );
+			$this->util->log("Loading the user record to send to TextIt...");
 			$textit_record = $this->configureTextItRecord( $user_info, $group_list, $flow_config );
 			$user_uuid     = get_user_meta( $user_id, 'e20r_textit_contact_uuid', true );
 			
@@ -1005,6 +1038,7 @@ class e20rTextitIntegration {
 		$default_service_mappings = array();
 		
 		foreach ( $services as $service => $config ) {
+		 
 			$default_service_mappings[ $service ] = array(
 				'flow_id'    => '',
 				'group_uuid' => '',
@@ -1256,7 +1290,7 @@ class e20rTextitIntegration {
 	private function defaultFieldMap() {
 		
 		return array(
-			'flowtype'       => 'flow',
+			'flowtype'       => 'flowtype',
 			'elapsed_time'   => 'elapse_time',
 			'firstname'      => 'first_name',
 			'lastname'       => 'last_name',
@@ -1274,7 +1308,7 @@ class e20rTextitIntegration {
 	}
 	
 	/**
-	 * Seelct the default value for a specific database/TextIt Contact field
+	 * Select the default value for a specific database/TextIt Contact field
 	 *
 	 * @param string $field_name
 	 *
@@ -1286,7 +1320,8 @@ class e20rTextitIntegration {
 		
 		switch ( $field_name ) {
 			case 'flowtype':
-				$value = 'flow';
+			    $this->util->log("Processing {$field_name} field name...");
+				$value = null;
 				break;
 		}
 		
