@@ -334,7 +334,7 @@ class e20rTextitIntegration {
                 }
             }
             
-			$this->util->log( "Added user info during checkout for {$user_id}" );
+			$this->util->log( "Added/Updated user info during checkout for {$user_id}" );
 			
 			$u_record = array( 'textitid' => $data->uuid, 'status' => 1, 'onetimefee' => 1 );
 			$where    = array( 'id' => $user_info->id );
@@ -371,8 +371,11 @@ class e20rTextitIntegration {
 				);
 				
 				$response = $this->updateTextItService( $msg, 'contact_actions.json' );
-				$this->util->log( "Response from final attempt to update TextIt: " . print_r( $response, true ) );
+				$this->util->log( "Response after removing user from welcomemessage flow TextIt: " . print_r( $response, true ) );
 			}
+			
+			// full_name_c1, contact_number_c1, full_name_2, contact_number_2_c2
+   
 		} else {
 			
 			$msg = __( "Unable to subscribe you to the TextIt service", "e20r-textit-integration" );
@@ -1060,12 +1063,26 @@ class e20rTextitIntegration {
 					$default_service_mappings[ $service ]['group_uuid'] = '607571ed-125c-432c-a2dc-ebf93539357a';
 					$default_service_mappings[ $service ]['flow_id']    = '';
 					break;
-				default:
+                default:
+                
 					if ( $service === 'welcomemessage' ) {
 					    //63c42285-f938-4528-9274-40419028d5db
 						$default_service_mappings[ $service ]['group_uuid'] = '607571ed-125c-432c-a2dc-ebf93539357a';
 						$default_service_mappings[ $service ]['flow_id']    = '63c42285-f938-4528-9274-40419028d5db';
 					}
+					
+					if ( $service === 'ec_reg_1' ) {
+						
+						$default_service_mappings[ $service ]['group_uuid'] = '1edd6189-323a-4790-ab3f-06ee527b8d35';
+						$default_service_mappings[ $service ]['flow_id']    = 'aeb05583-941e-4552-bd95-682ad90922e4';
+                    }
+                    
+                    if ( $service === 'ec_reg_2' ) {
+	
+	                    $default_service_mappings[ $service ]['group_uuid'] = '1edd6189-323a-4790-ab3f-06ee527b8d35';
+	                    $default_service_mappings[ $service ]['flow_id']    = 'e51f09f3-da01-4a67-acf5-744bd937be94';
+	
+                    }
 			}
 		}
 		
@@ -1506,18 +1523,25 @@ class e20rTextitIntegration {
 			'label' => __( "Facebook Messenger (Flow: FBM)", "e20r-textit-integration" ),
 			'type'  => 'FBM',
 		);
-		$serviceList['welcomemessage']    = array(
-			'label' => __( "Welcome Message (Flow: welcomemessage)", "e20r-textit-integration" ),
-			'type'  => '',
-		);
 		$serviceList['twitter']           = array(
 			'label' => __( "Twitter Message (Flow: TWIT)", "e20r-textit-integration" ),
 			'type'  => 'TWIT',
 		);
-		
 		$serviceList['telegram']           = array(
 			'label' => __( "Telegram (Flow: GRAM)", "e20r-textit-integration" ),
 			'type'  => 'GRAM',
+		);
+		$serviceList['welcomemessage']    = array(
+			'label' => __( "Welcome Message (Flow: welcomemessage)", "e20r-textit-integration" ),
+			'type'  => '',
+		);
+		$serviceList['ec_reg_1']    = array(
+			'label' => __( "Registration for Emergency Contact #1", "e20r-textit-integration" ),
+			'type'  => '',
+		);
+		$serviceList['ec_reg_2']    = array(
+			'label' => __( "Registration for Emergency Contact #2", "e20r-textit-integration" ),
+			'type'  => '',
 		);
 		
 		// $serviceList['twitter'] = __( "Twitter Message", "e20r-textit-integration" );
@@ -1549,11 +1573,33 @@ class e20rTextitIntegration {
 	public function loadSettings( $option_name ) {
 		
 		$this->settings = get_option( "{$this->settings_name}", false );
+		$defaults = $this->defaultSettings();
 		
+		if ( empty( $this->util ) ) {
+		    $this->util = e20rUtils::get_instance();;
+        }
+        
 		if ( empty( $this->settings ) ) {
 			$this->settings = $this->defaultSettings();
 		}
-		
+  
+		foreach( $defaults as $key => $settings ) {
+		    
+		    if ( count($defaults[$key] ) > count( $this->settings[$key] ) ) {
+		        $this->util->log("New settings to include for {$key}!");
+		        foreach( $settings as $k => $value ) {
+		            
+		            if ( !isset( $this->settings[$key][$k] ) ) {
+		                $this->util->log("Adding setting for [{$key}][{$k}] => {$value}");
+			            $this->settings[$key][$k] = $value;
+                    }
+                }
+            }
+            
+            $this->util->log("Preserving updated setting {$key} to DB");
+            update_option( "{$this->settings_name}", $this->settings, 'no' );
+        }
+        
 		if ( isset( $this->settings[ $option_name ] ) && ! empty( $this->settings[ $option_name ] ) ) {
 			
 			return $this->settings[ $option_name ];
