@@ -380,8 +380,8 @@ class e20rTextitIntegration {
 			// Data for Emergency Contact #1 start flow
 			$ec1_info = array(
 				'name'          => "{$user_info->first_name} {$user_info->last_name}",
-				'primary_name'  => $user_info->contact1name,
-				'primary_phone' => $user_info->contact1phone,
+				'primary_name'  => $user_info->full_name_c1,
+				'primary_phone' => $user_info->contact_number_c1,
 			);
 			
 			if ( false !== ( $response = $this->sendMessage( 'ec_reg_1', $urn_info, $ec1_info ) ) ) {
@@ -395,8 +395,8 @@ class e20rTextitIntegration {
 			// Data for Emergency Contact #2 start flow
 			$ec2_info = array(
 				'name'          => "{$user_info->first_name} {$user_info->last_name}",
-				'primary_name'  => $user_info->contact2name,
-				'primary_phone' => $user_info->contact2phone, // FixMe: Could be that we need to use contact2phone2 instead???
+				'primary_name'  => $user_info->full_name_2,
+				'primary_phone' => $user_info->contact_number_2_2, // FixMe: Could be that we need to use contact2phone2 instead???
 			);
 			
 			if ( false !== ( $response = $this->sendMessage( 'ec_reg_2', $urn_info, $ec2_info ) ) ) {
@@ -769,6 +769,13 @@ class e20rTextitIntegration {
 	 */
 	public function updateTextItService( $body = null, $json_file = "contacts.json", $operation = 'POST', $user_uuid = null ) {
 		
+	    // BUG FIX: cURL warning during certain GET operations
+	    if ( 'GET' === strtoupper( $operation ) && 1 <= count( $body ) ) {
+	        $enc_body = ! empty( $body ) ? $body : array();
+        } else {
+	        $enc_body = ! empty( $body ) ? json_encode( $body ) : array();
+        }
+        
 		$request = array(
 			'timeout'     => apply_filters( 'e20r_textit_service_request_timeout', 30 ),
 			'httpversion' => '1.1',
@@ -778,7 +785,7 @@ class e20rTextitIntegration {
 				"Accept"        => "application/json",
 				"Authorization" => "Token {$this->key}",
 			),
-			'body'        => ! empty( $body ) ? json_encode( $body ) : array(),
+			'body'        => $enc_body,
 		);
 		
 		$url = "{$this->urlBase}/{$json_file}";
