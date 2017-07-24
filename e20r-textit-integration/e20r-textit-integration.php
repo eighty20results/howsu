@@ -246,14 +246,14 @@ class e20rTextitIntegration {
 		
 		$this->util->log( "Returned status for {$user_info->service_number}: " . print_r( $status, true ) );
 		
-		if (  isset( $status->results[0] ) && ! empty( $status->results[0] ) ) {
-		    $this->util->log("Will return the user record data from the test");
-		    $retval = $status->results[0];
-        } else {
-		    $retval = false;
-        }
+		if ( isset( $status->results[0] ) && ! empty( $status->results[0] ) ) {
+			$this->util->log( "Will return the user record data from the test" );
+			$retval = $status->results[0];
+		} else {
+			$retval = false;
+		}
 		
-		    return $retval;
+		return $retval;
 	}
 	
 	/**
@@ -290,7 +290,7 @@ class e20rTextitIntegration {
 		$user->set_role( $role_name );
 		
 		$this->util->log( "Configured {$role_name} role for user {$user->user_email}" );
-  
+		
 		// Save the membership number (service number) and other metadata for the user.
 		update_user_meta( $user_id, 'member_number', $user_info->service_number );
 		update_user_meta( $user_id, 'first_name', $user_info->first_name );
@@ -302,13 +302,13 @@ class e20rTextitIntegration {
 		$this->util->log( "TextIt Group info: " . print_r( $group_list, true ) );
 		
 		if ( empty( $user_info->service_number ) ) {
-		 
+			
 			$msg = sprintf( __( "Cannot start TextIt Service for %s: Err-InvalidServiceNumber", "e20r-textit-integration" ), $user->display_name );
 			$this->util->set_notice( $msg, 'error' );
 			$this->util->log( $msg );
 		}
 		
-		$this->util->log("Processing the user record to send to TextIt...");
+		$this->util->log( "Processing the user record to send to TextIt..." );
 		$textit_record = $this->configureTextItRecord( $user_info, $group_list, $flow_config );
 		
 		$this->util->log( "Loading user info to TextIt Service: " . print_r( $textit_record['fields'], true ) );
@@ -319,27 +319,28 @@ class e20rTextitIntegration {
 		
 		// Manage user record to the TextIt Service (can try adding if none exists)
 		if ( ( ! empty( $is_registered ) ) || ( ( empty( $is_registered ) && ( false !== ( $data = $this->updateTextItService( $textit_record ) ) ) ) ) ) {
-      
-		    // Try updating instead...
-		    if ( empty( $data ) && isset( $is_registered->fields ) ) {
-		        
-		        $this->util->log("User is already registered upstream (on TextIt servers). Need to update them");
-		        $data = $is_registered;
-		        
-		        if ( false === ( $ret = $this->updateTextItService( $textit_record, 'contacts.json','POST', $data->uuid ) ) ) {
-		            $this->util->log("Unable to update the {$data->uuid} contact data on TextIt Server....:" . print_r( $ret, true ));
-		            return false;
-		        } else {
-		            $this->util->log("Update successful for {$data->uuid}: " . print_r( $ret, true ));
-                }
-            }
-            
+			
+			// Try updating instead...
+			if ( empty( $data ) && isset( $is_registered->fields ) ) {
+				
+				$this->util->log( "User is already registered upstream (on TextIt servers). Need to update them" );
+				$data = $is_registered;
+				
+				if ( false === ( $ret = $this->updateTextItService( $textit_record, 'contacts.json', 'POST', $data->uuid ) ) ) {
+					$this->util->log( "Unable to update the {$data->uuid} contact data on TextIt Server....:" . print_r( $ret, true ) );
+					
+					return false;
+				} else {
+					$this->util->log( "Update successful for {$data->uuid}: " . print_r( $ret, true ) );
+				}
+			}
+			
 			$this->util->log( "Added/Updated user info during checkout for {$user_id}" );
 			
 			$u_record = array( 'textitid' => $data->uuid, 'status' => 1, 'onetimefee' => 1 );
 			$where    = array( 'id' => $user_info->id );
 			
-			$this->util->log("Flow Type is now: {$data->fields->flowtype}");
+			$this->util->log( "Flow Type is now: {$data->fields->flowtype}" );
 			
 			// Save the TextIt User UUID (contact record UUID)
 			update_user_meta( $user_id, 'e20r_textit_contact_uuid', $data->uuid );
@@ -375,7 +376,37 @@ class e20rTextitIntegration {
 			}
 			
 			// full_name_c1, contact_number_c1, full_name_2, contact_number_2_c2
-   
+			
+			// Data for Emergency Contact #1 start flow
+			$ec1_info = array(
+				'name'          => "{$user_info->first_name} {$user_info->last_name}",
+				'primary_name'  => $user_info->contact1name,
+				'primary_phone' => $user_info->contact1phone,
+			);
+			
+			if ( false !== ( $response = $this->sendMessage( 'ec_reg_1', $urn_info, $ec1_info ) ) ) {
+				$this->util->log( "Initiated flow for emergency contact #1 ({$user_info->full_name_c1})" );
+			} else {
+			    $this->util->log("Unable to update/configure emergency contact #1");
+				$this->sendUserAssistanceMessage( $user_info, __( "emergency contact #1 update", "e20r-textit-integration") );
+				return false;
+			}
+			
+			// Data for Emergency Contact #2 start flow
+			$ec2_info = array(
+				'name'          => "{$user_info->first_name} {$user_info->last_name}",
+				'primary_name'  => $user_info->contact2name,
+				'primary_phone' => $user_info->contact2phone, // FixMe: Could be that we need to use contact2phone2 instead???
+			);
+			
+			if ( false !== ( $response = $this->sendMessage( 'ec_reg_2', $urn_info, $ec2_info ) ) ) {
+				$this->util->log( "Initiated flow for emergency contact #2 ({$user_info->full_name_2})" );
+			} else {
+				$this->util->log("Unable to update/configure emergency contact #2");
+				$this->sendUserAssistanceMessage( $user_info, __( "emergency contact #2 update", "e20r-textit-integration") );
+				return false;
+			}
+			
 		} else {
 			
 			$msg = __( "Unable to subscribe you to the TextIt service", "e20r-textit-integration" );
@@ -392,28 +423,8 @@ class e20rTextitIntegration {
 			// Send the admin an email notice
 			wp_mail( $recipients, $subject, $message );
 			
-			// Set the group for the user to request assistance
-			$groups = $this->_getGroupUUIDsFromName( array( 'UserAssistance' ) );
-			
-			// $urn_type = strtolower( $user_info->flowtype );
 			$urn_info = array( "tel: {$user_info->service_number}" );
-			
-			// Retry sending the welcome message?
-			$msg = array(
-				'name'   => "{$user_info->first_name} {$user_info->last_name}",
-				'groups' => ! empty( $groups ) ? $groups : array(),
-				'urns'   => $urn_info,
-			);
-			
-			$data = $this->updateTextItService( $msg );
-			
-			if ( false === $data ) {
-				$msg = __( "Failed to send alert message", "e20r-textit-integration" );
-				$this->util->log( $msg );
-				$this->util->set_notice( $msg, 'error' );
-				
-				return false;
-			}
+			$data = $this->sendUserAssistanceMessage( $user_info );
 			
 			if ( false === $this->updateUserRecord( $user_id, array(
 					'textitid'   => $data->uuid,
@@ -424,7 +435,7 @@ class e20rTextitIntegration {
 				$msg = __( "Failed to update the user's database record after welcome message retry", "e20r-textit-integration" );
 				$this->util->log( $msg );
 				$this->util->set_notice( $msg, 'error' );
-    
+				
 				return false;
 			}
 			
@@ -439,6 +450,41 @@ class e20rTextitIntegration {
 	}
 	
 	/**
+	 * @param $user_info
+	 *
+	 * @return array
+	 */
+	private function sendUserAssistanceMessage( $user_info, $type = null ) {
+		
+	    if ( is_null( $type )) {
+	        $type = __( "TextIt service registration", "e20r-textit-integration" );
+        }
+        
+		// Set the group for the user to request assistance
+		$groups = $this->_getGroupUUIDsFromName( array( 'UserAssistance' ) );
+		
+		// $urn_type = strtolower( $user_info->flowtype );
+		$urn_info = array( "tel: {$user_info->service_number}" );
+		
+		// Retry sending the welcome message?
+		$msg = array(
+			'name'   => "{$user_info->first_name} {$user_info->last_name}",
+			'groups' => ! empty( $groups ) ? $groups : array(),
+			'urns'   => $urn_info,
+		);
+		
+		$data = $this->updateTextItService( $msg );
+		
+		if ( false === $data ) {
+			$msg = sprintf( __( "Failed to send %s alert message", "e20r-textit-integration" ), $type );
+			$this->util->log( $msg );
+			$this->util->set_notice( $msg, 'error' );
+		}
+		
+		return $data;
+	}
+	
+	/**
 	 * Using the HowsU User Data record, configure the Contact info for the TextIt Service
 	 *
 	 * @param array $user_info
@@ -449,8 +495,8 @@ class e20rTextitIntegration {
 	 */
 	private function configureTextItRecord( $user_info, $group_list, $flow_config ) {
 		
-	    $this->util->log("Processing TextIt record...");
-	    
+		$this->util->log( "Processing TextIt record..." );
+		
 		$field_config = $this->loadSettings( 'field_map' );
 		
 		$textit_record = array(
@@ -468,7 +514,7 @@ class e20rTextitIntegration {
 				$this->util->log( "Field {$tField} needs to use default value" );
 				
 				if ( 'flowtype' == strtolower( $tField ) ) {
-				 
+					
 					$this->util->log( "Configuring the type/Service type ({$tField} => {$user_info->service_type})" );
 					// $services                           = apply_filters( 'e20r_textit_available_service_options', array() );
 					// $type_key                           = $this->_process_text( $user_info->service_type );
@@ -477,7 +523,7 @@ class e20rTextitIntegration {
 					
 				} else {
 					$textit_record['fields'][ $tField ] = $this->defaultFieldValue( $tField );
-					$this->util->log("Setting default value for {$tField}");
+					$this->util->log( "Setting default value for {$tField}" );
 				}
 			} else {
 				
@@ -498,7 +544,7 @@ class e20rTextitIntegration {
 	 *
 	 * @return bool
 	 */
-	public function sendMessage( $flow_type, $who ) {
+	public function sendMessage( $flow_type, $who, $extra = array() ) {
 		
 		$flow_settings = $this->_getFlowConfig( $flow_type );
 		// $who           = ! is_array( $who ) ? array( "tel: {$who}" ) : $who;
@@ -506,8 +552,11 @@ class e20rTextitIntegration {
 		$msg = array(
 			'flow' => $flow_settings['flow_id'],
 			'urns' => $who,
-            // 'extra' => array( 'flowtype' => $flow_type ),
 		);
+		
+		if ( ! empty( $extra ) ) {
+			$msg['extra'] = $extra;
+		}
 		
 		$data = $this->updateTextItService( $msg, 'flow_starts.json', 'POST' );
 		
@@ -560,10 +609,10 @@ class e20rTextitIntegration {
 		
 		if ( ! empty( $user_info ) ) {
 			
-			$group_name    = $this->_getRoleName( $user_info->service_level );
-			$group_list    = $this->_setGroupInfo( $group_name );
-			$flow_config   = $this->_getFlowConfig( $user_info->service_type );
-			$this->util->log("Loading the user record to send to TextIt...");
+			$group_name  = $this->_getRoleName( $user_info->service_level );
+			$group_list  = $this->_setGroupInfo( $group_name );
+			$flow_config = $this->_getFlowConfig( $user_info->service_type );
+			$this->util->log( "Loading the user record to send to TextIt..." );
 			$textit_record = $this->configureTextItRecord( $user_info, $group_list, $flow_config );
 			$user_uuid     = get_user_meta( $user_id, 'e20r_textit_contact_uuid', true );
 			
@@ -1041,7 +1090,7 @@ class e20rTextitIntegration {
 		$default_service_mappings = array();
 		
 		foreach ( $services as $service => $config ) {
-		 
+			
 			$default_service_mappings[ $service ] = array(
 				'flow_id'    => '',
 				'group_uuid' => '',
@@ -1063,10 +1112,10 @@ class e20rTextitIntegration {
 					$default_service_mappings[ $service ]['group_uuid'] = '607571ed-125c-432c-a2dc-ebf93539357a';
 					$default_service_mappings[ $service ]['flow_id']    = '';
 					break;
-                default:
-                
+				default:
+					
 					if ( $service === 'welcomemessage' ) {
-					    //63c42285-f938-4528-9274-40419028d5db
+						//63c42285-f938-4528-9274-40419028d5db
 						$default_service_mappings[ $service ]['group_uuid'] = '607571ed-125c-432c-a2dc-ebf93539357a';
 						$default_service_mappings[ $service ]['flow_id']    = '63c42285-f938-4528-9274-40419028d5db';
 					}
@@ -1075,14 +1124,14 @@ class e20rTextitIntegration {
 						
 						$default_service_mappings[ $service ]['group_uuid'] = '1edd6189-323a-4790-ab3f-06ee527b8d35';
 						$default_service_mappings[ $service ]['flow_id']    = 'aeb05583-941e-4552-bd95-682ad90922e4';
-                    }
-                    
-                    if ( $service === 'ec_reg_2' ) {
-	
-	                    $default_service_mappings[ $service ]['group_uuid'] = '1edd6189-323a-4790-ab3f-06ee527b8d35';
-	                    $default_service_mappings[ $service ]['flow_id']    = 'e51f09f3-da01-4a67-acf5-744bd937be94';
-	
-                    }
+					}
+					
+					if ( $service === 'ec_reg_2' ) {
+						
+						$default_service_mappings[ $service ]['group_uuid'] = '1edd6189-323a-4790-ab3f-06ee527b8d35';
+						$default_service_mappings[ $service ]['flow_id']    = 'e51f09f3-da01-4a67-acf5-744bd937be94';
+						
+					}
 			}
 		}
 		
@@ -1337,7 +1386,7 @@ class e20rTextitIntegration {
 		
 		switch ( $field_name ) {
 			case 'flowtype':
-			    $this->util->log("Processing {$field_name} field name...");
+				$this->util->log( "Processing {$field_name} field name..." );
 				$value = null;
 				break;
 		}
@@ -1527,7 +1576,7 @@ class e20rTextitIntegration {
 			'label' => __( "Twitter Message (Flow: TWIT)", "e20r-textit-integration" ),
 			'type'  => 'TWIT',
 		);
-		$serviceList['telegram']           = array(
+		$serviceList['telegram']          = array(
 			'label' => __( "Telegram (Flow: GRAM)", "e20r-textit-integration" ),
 			'type'  => 'GRAM',
 		);
@@ -1535,11 +1584,11 @@ class e20rTextitIntegration {
 			'label' => __( "Welcome Message (Flow: welcomemessage)", "e20r-textit-integration" ),
 			'type'  => '',
 		);
-		$serviceList['ec_reg_1']    = array(
+		$serviceList['ec_reg_1']          = array(
 			'label' => __( "Registration for Emergency Contact #1", "e20r-textit-integration" ),
 			'type'  => '',
 		);
-		$serviceList['ec_reg_2']    = array(
+		$serviceList['ec_reg_2']          = array(
 			'label' => __( "Registration for Emergency Contact #2", "e20r-textit-integration" ),
 			'type'  => '',
 		);
@@ -1573,33 +1622,35 @@ class e20rTextitIntegration {
 	public function loadSettings( $option_name ) {
 		
 		$this->settings = get_option( "{$this->settings_name}", false );
-		$defaults = $this->defaultSettings();
+		$defaults       = $this->defaultSettings();
 		
 		if ( empty( $this->util ) ) {
-		    $this->util = e20rUtils::get_instance();;
-        }
-        
+			$this->util = e20rUtils::get_instance();;
+		}
+		
 		if ( empty( $this->settings ) ) {
 			$this->settings = $this->defaultSettings();
 		}
-  
-		foreach( $defaults as $key => $settings ) {
-		    
-		    if ( count($defaults[$key] ) > count( $this->settings[$key] ) ) {
-		        $this->util->log("New settings to include for {$key}!");
-		        foreach( $settings as $k => $value ) {
-		            
-		            if ( !isset( $this->settings[$key][$k] ) ) {
-		                $this->util->log("Adding setting for [{$key}][{$k}] => {$value}");
-			            $this->settings[$key][$k] = $value;
-                    }
-                }
-            }
-            
-            $this->util->log("Preserving updated setting {$key} to DB");
-            update_option( "{$this->settings_name}", $this->settings, 'no' );
-        }
-        
+		
+		foreach ( $defaults as $key => $settings ) {
+			
+			if ( count( $defaults[ $key ] ) > count( $this->settings[ $key ] ) ) {
+				
+			    $this->util->log( "New settings to include for {$key}!" );
+				
+			    foreach ( $settings as $k => $value ) {
+					
+					if ( ! isset( $this->settings[ $key ][ $k ] ) ) {
+					 
+						$this->util->log( "Adding setting for [{$key}][{$k}] => {$value}" );
+						$this->settings[ $key ][ $k ] = $value;
+					}
+				}
+				
+				update_option( "{$this->settings_name}", $this->settings, 'no' );
+			}
+		}
+		
 		if ( isset( $this->settings[ $option_name ] ) && ! empty( $this->settings[ $option_name ] ) ) {
 			
 			return $this->settings[ $option_name ];
@@ -2102,12 +2153,13 @@ class e20rTextitIntegration {
 	 */
 	public function paymentFailed( $old_order ) {
 		
-	    if ( ! function_exists( 'pmpro_changeMembershipLevel' ) ) {
-	        $this->util->log("Error: PMPro is no longer active on the site!");
-	        $this->util->set_notice( __("Paid Memberships Pro is missing or inactive. Please activate Paid Memberships Pro!", "e20r-textit-integraion"), 'error' );
-	        return;
-        }
-        
+		if ( ! function_exists( 'pmpro_changeMembershipLevel' ) ) {
+			$this->util->log( "Error: PMPro is no longer active on the site!" );
+			$this->util->set_notice( __( "Paid Memberships Pro is missing or inactive. Please activate Paid Memberships Pro!", "e20r-textit-integraion" ), 'error' );
+			
+			return;
+		}
+		
 		if ( false === pmpro_changeMembershipLevel( false, $old_order->user_id ) ) {
 			
 			$admin_email = apply_filters( 'e20r_textit_admin_email_addr', array( get_option( 'admin_email' ) ) );
@@ -2261,8 +2313,9 @@ class e20rTextitIntegration {
 	function avoidLevelsPage() {
 		
 		if ( ! function_exists( 'pmpro_getMembershipLevelForUser' ) ) {
-			$this->util->log("Error: PMPro is no longer active on the site!");
-			$this->util->set_notice( __("Paid Memberships Pro is missing or inactive. Please activate Paid Memberships Pro!", "e20r-textit-integraion"), 'error' );
+			$this->util->log( "Error: PMPro is no longer active on the site!" );
+			$this->util->set_notice( __( "Paid Memberships Pro is missing or inactive. Please activate Paid Memberships Pro!", "e20r-textit-integraion" ), 'error' );
+			
 			return;
 		}
 		
@@ -2357,8 +2410,9 @@ class e20rTextitIntegration {
 	public function loginRedirectHandler( $redirect_to ) {
 		
 		if ( ! function_exists( 'pmpro_url' ) ) {
-			$this->util->log("Error: PMPro is no longer active on the site!");
-			$this->util->set_notice( __("Paid Memberships Pro is missing or inactive. Please activate Paid Memberships Pro!", "e20r-textit-integraion"), 'error' );
+			$this->util->log( "Error: PMPro is no longer active on the site!" );
+			$this->util->set_notice( __( "Paid Memberships Pro is missing or inactive. Please activate Paid Memberships Pro!", "e20r-textit-integraion" ), 'error' );
+			
 			return $redirect_to;
 		}
 		
