@@ -3,7 +3,7 @@ Contributors: sjolshag
 Tags: TextIt, memberships, paid memberships pro
 Requires at least: 4.7
 Tested up to: 4.8
-Stable tag: 2.1
+Stable tag: 2.1.2
 
 Eighty/20 Results - TextIt/PMPro Service interface
 
@@ -33,6 +33,12 @@ operations plus pause/resume of TextIt services based on membership events or me
 2. Activate the plugin through the 'Plugins' menu in WordPress.
 
 == Changelog ==
+
+== 2.1.2 ==
+
+* BUG FIX: Didn't send correct fields for the Emergency Contact info to TextIt service
+* BUG FIX: Add config support for emergency contact activation for TextIt
+* ENHANCEMENT: Triggering Emergency Contact welcome flows on registration
 
 == 2.1 ==
 

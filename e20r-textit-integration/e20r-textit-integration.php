@@ -3,7 +3,7 @@
 Plugin Name: E20R HowsU/Text-It Messaging Service integration
 Plugin URI: http://eighty20results.com/wordpress-plugins/e20r-textit-integration/
 Description: howsu.today website integration for the textit.in SMS/Voice messaging service
-Version: 2.1
+Version: 2.1.2
 Requires: 4.7
 Tested: 4.7.5
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
