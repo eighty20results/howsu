@@ -247,7 +247,7 @@ class e20rTextitIntegration {
 		$this->util->log( "Returned status for {$user_info->service_number}: " . print_r( $status, true ) );
 		
 		if ( isset( $status->results[0] ) && ! empty( $status->results[0] ) ) {
-			$this->util->log( "Will return the user record data from the test" );
+			$this->util->log( "Will return the user record data from the test: " . print_r( $status->results[0], true ) );
 			$retval = $status->results[0];
 		} else {
 			$retval = false;
@@ -387,8 +387,9 @@ class e20rTextitIntegration {
 			if ( false !== ( $response = $this->sendMessage( 'ec_reg_1', $urn_info, $ec1_info ) ) ) {
 				$this->util->log( "Initiated flow for emergency contact #1 ({$user_info->full_name_c1})" );
 			} else {
-			    $this->util->log("Unable to update/configure emergency contact #1");
-				$this->sendUserAssistanceMessage( $user_info, __( "emergency contact #1 update", "e20r-textit-integration") );
+				$this->util->log( "Unable to update/configure emergency contact #1" );
+				$this->sendUserAssistanceMessage( $user_info, __( "emergency contact #1 update", "e20r-textit-integration" ) );
+				
 				return false;
 			}
 			
@@ -396,14 +397,16 @@ class e20rTextitIntegration {
 			$ec2_info = array(
 				'name'          => "{$user_info->first_name} {$user_info->last_name}",
 				'primary_name'  => $user_info->full_name_2,
-				'primary_phone' => $user_info->contact_number_2_2, // FixMe: Could be that we need to use contact2phone2 instead???
+				'primary_phone' => $user_info->contact_number_2_2,
+				// FixMe: Could be that we need to use contact2phone2 instead???
 			);
 			
 			if ( false !== ( $response = $this->sendMessage( 'ec_reg_2', $urn_info, $ec2_info ) ) ) {
 				$this->util->log( "Initiated flow for emergency contact #2 ({$user_info->full_name_2})" );
 			} else {
-				$this->util->log("Unable to update/configure emergency contact #2");
-				$this->sendUserAssistanceMessage( $user_info, __( "emergency contact #2 update", "e20r-textit-integration") );
+				$this->util->log( "Unable to update/configure emergency contact #2" );
+				$this->sendUserAssistanceMessage( $user_info, __( "emergency contact #2 update", "e20r-textit-integration" ) );
+				
 				return false;
 			}
 			
@@ -424,7 +427,7 @@ class e20rTextitIntegration {
 			wp_mail( $recipients, $subject, $message );
 			
 			$urn_info = array( "tel: {$user_info->service_number}" );
-			$data = $this->sendUserAssistanceMessage( $user_info );
+			$data     = $this->sendUserAssistanceMessage( $user_info );
 			
 			if ( false === $this->updateUserRecord( $user_id, array(
 					'textitid'   => $data->uuid,
@@ -456,10 +459,10 @@ class e20rTextitIntegration {
 	 */
 	private function sendUserAssistanceMessage( $user_info, $type = null ) {
 		
-	    if ( is_null( $type )) {
-	        $type = __( "TextIt service registration", "e20r-textit-integration" );
-        }
-        
+		if ( is_null( $type ) ) {
+			$type = __( "TextIt service registration", "e20r-textit-integration" );
+		}
+		
 		// Set the group for the user to request assistance
 		$groups = $this->_getGroupUUIDsFromName( array( 'UserAssistance' ) );
 		
@@ -769,13 +772,13 @@ class e20rTextitIntegration {
 	 */
 	public function updateTextItService( $body = null, $json_file = "contacts.json", $operation = 'POST', $user_uuid = null ) {
 		
-	    // BUG FIX: cURL warning during certain GET operations
-	    if ( 'GET' === strtoupper( $operation ) && 1 <= count( $body ) ) {
-	        $enc_body = ! empty( $body ) ? $body : array();
-        } else {
-	        $enc_body = ! empty( $body ) ? json_encode( $body ) : array();
-        }
-        
+		// BUG FIX: cURL warning during certain GET operations
+		if ( 'GET' === strtoupper( $operation ) && 1 <= count( $body ) ) {
+			$enc_body = ! empty( $body ) ? $body : array();
+		} else {
+			$enc_body = ! empty( $body ) ? json_encode( $body ) : array();
+		}
+		
 		$request = array(
 			'timeout'     => apply_filters( 'e20r_textit_service_request_timeout', 30 ),
 			'httpversion' => '1.1',
@@ -938,6 +941,10 @@ class e20rTextitIntegration {
 	 */
 	private function _setGroupInfo( $group_name, $var = null, $value = null ) {
 		
+	 //time_window
+        //time_window_2
+        //time_window_3
+        
 		$var_name = apply_filters( 'e20r_textit_timewindow_variable_names', array(
 				'time_window',
 				'time_window_2',
@@ -969,22 +976,35 @@ class e20rTextitIntegration {
 		
 		for ( $i = 0; $i < $entries; $i ++ ) {
 			
+			$this->util->log("Name:  {$var_name[$i]} " );
+			
 			if ( $var == $var_name[ $i ] ) {
+			    $this->util->log( "Var value: {$value}" );
 				$time = $value;
 			} else {
 				$time = substr( $this->userRecord->{$var_name[ $i ]}, 0, 2 );
 			}
 			
+			$this->util->log("Time value is now {$time} for {$var_name[$i]}");
+			
 			if ( false !== stripos( $group_name, 'weekend' ) ) {
 				$group_name = 'weekend';
 			}
 			
-			$groups[] = "{$group_name}{$time}";
+			$group_string = "{$group_name}{$time}";
+			
+			$this->util->log("Group string: {$group_string}");
+			
+			if ( ! empty( $group_string ) ) {
+				$groups[] = $group_string;
+			}
 		}
 		
-		$groups = $this->_getGroupUUIDsFromName( $groups );
+		$this->util->log("Groups before fetching UUID: " . print_r( $groups, true ) );
+		$uuid_groups = $this->_getGroupUUIDsFromName( $groups );
+		$this->util->log("Groups after fetching UUID: " . print_r( $uuid_groups, true ) );
 		
-		return $groups;
+		return empty( $uuid_groups ) ? null : $uuid_groups;
 	}
 	
 	/**
@@ -1002,7 +1022,9 @@ class e20rTextitIntegration {
 		$this->util->log( "Convert Group names to UUIDs for v2 of the TextIt API to use" );
 		
 		foreach ( $groups as $name ) {
-			$group_uuids[] = $cached_groups[ $name ]->uuid;
+			if ( !empty($cached_groups[ $name ]->uuid )) {
+				$group_uuids[] = $cached_groups[ $name ]->uuid;
+			}
 		}
 		
 		return $group_uuids;
@@ -1643,12 +1665,12 @@ class e20rTextitIntegration {
 			
 			if ( count( $defaults[ $key ] ) > count( $this->settings[ $key ] ) ) {
 				
-			    $this->util->log( "New settings to include for {$key}!" );
+				$this->util->log( "New settings to include for {$key}!" );
 				
-			    foreach ( $settings as $k => $value ) {
+				foreach ( $settings as $k => $value ) {
 					
 					if ( ! isset( $this->settings[ $key ][ $k ] ) ) {
-					 
+						
 						$this->util->log( "Adding setting for [{$key}][{$k}] => {$value}" );
 						$this->settings[ $key ][ $k ] = $value;
 					}
