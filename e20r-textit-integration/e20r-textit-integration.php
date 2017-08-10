@@ -3,7 +3,7 @@
 Plugin Name: E20R HowsU/Text-It Messaging Service integration
 Plugin URI: http://eighty20results.com/wordpress-plugins/e20r-textit-integration/
 Description: howsu.today website integration for the textit.in SMS/Voice messaging service
-Version: 2.1.2
+Version: 2.1.3
 Requires: 4.7
 Tested: 4.7.5
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
@@ -37,7 +37,7 @@ if ( ! defined( 'HOWSU_PLUGIN_URL' ) ) {
 }
 
 if ( ! defined( 'E20RTEXTIT_VER' ) ) {
-	define( 'E20RTEXTIT_VER', '2.1' );
+	define( 'E20RTEXTIT_VER', '2.1.3' );
 }
 
 class e20rTextitIntegration {
@@ -941,10 +941,10 @@ class e20rTextitIntegration {
 	 */
 	private function _setGroupInfo( $group_name, $var = null, $value = null ) {
 		
-	 //time_window
-        //time_window_2
-        //time_window_3
-        
+		//time_window
+		//time_window_2
+		//time_window_3
+		
 		$var_name = apply_filters( 'e20r_textit_timewindow_variable_names', array(
 				'time_window',
 				'time_window_2',
@@ -976,16 +976,16 @@ class e20rTextitIntegration {
 		
 		for ( $i = 0; $i < $entries; $i ++ ) {
 			
-			$this->util->log("Name:  {$var_name[$i]} " );
+			$this->util->log( "Name:  {$var_name[$i]} " );
 			
 			if ( $var == $var_name[ $i ] ) {
-			    $this->util->log( "Var value: {$value}" );
+				$this->util->log( "Var value: {$value}" );
 				$time = $value;
 			} else {
 				$time = substr( $this->userRecord->{$var_name[ $i ]}, 0, 2 );
 			}
 			
-			$this->util->log("Time value is now {$time} for {$var_name[$i]}");
+			$this->util->log( "Time value is now {$time} for {$var_name[$i]}" );
 			
 			if ( false !== stripos( $group_name, 'weekend' ) ) {
 				$group_name = 'weekend';
@@ -993,16 +993,16 @@ class e20rTextitIntegration {
 			
 			$group_string = "{$group_name}{$time}";
 			
-			$this->util->log("Group string: {$group_string}");
+			$this->util->log( "Group string: {$group_string}" );
 			
 			if ( ! empty( $group_string ) ) {
 				$groups[] = $group_string;
 			}
 		}
 		
-		$this->util->log("Groups before fetching UUID: " . print_r( $groups, true ) );
+		$this->util->log( "Groups before fetching UUID: " . print_r( $groups, true ) );
 		$uuid_groups = $this->_getGroupUUIDsFromName( $groups );
-		$this->util->log("Groups after fetching UUID: " . print_r( $uuid_groups, true ) );
+		$this->util->log( "Groups after fetching UUID: " . print_r( $uuid_groups, true ) );
 		
 		return empty( $uuid_groups ) ? null : $uuid_groups;
 	}
@@ -1022,7 +1022,7 @@ class e20rTextitIntegration {
 		$this->util->log( "Convert Group names to UUIDs for v2 of the TextIt API to use" );
 		
 		foreach ( $groups as $name ) {
-			if ( !empty($cached_groups[ $name ]->uuid )) {
+			if ( ! empty( $cached_groups[ $name ]->uuid ) ) {
 				$group_uuids[] = $cached_groups[ $name ]->uuid;
 			}
 		}
@@ -1277,7 +1277,7 @@ class e20rTextitIntegration {
 			'e20r_textit_dbmap',
 			array( 'option_name' => 'field_map' )
 		);
-		
+	
 	}
 	
 	/**

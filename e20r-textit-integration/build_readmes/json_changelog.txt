@@ -1,1 +1,1 @@
-<h3>2.1.2</h3><ol><li>BUG FIX: Didn't send correct fields for the Emergency Contact info to TextIt service</li><li>BUG FIX: Add config support for emergency contact activation for TextIt</li><li>ENHANCEMENT: Triggering Emergency Contact welcome flows on registration</li></ol>
+<h3>2.1.3</h3><ol><li>BUG FIX: Didn't send correct fields for the Emergency Contact info to TextIt service</li><li>BUG FIX: Add config support for emergency contact activation for TextIt</li><li>ENHANCEMENT: Triggering Emergency Contact welcome flows on registration</li></ol>

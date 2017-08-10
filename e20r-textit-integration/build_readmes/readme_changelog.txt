@@ -1,4 +1,4 @@
-== 2.1.2 ==
+== 2.1.3 ==
 
 * BUG FIX: Didn't send correct fields for the Emergency Contact info to TextIt service
 * BUG FIX: Add config support for emergency contact activation for TextIt
