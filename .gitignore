@@ -53,3 +53,6 @@ fabric.properties
 /e20r-textit-integration/build/
 /e20r-textit-integration/build_readmes/json_changelog.txt
 /e20r-textit-integration/build_readmes/readme_changelog.txt
+/howsu-demo/build_readmes/readme_changelog.txt
+/howsu-demo/build_readmes/json_changelog.txt
+/howsu-demo/build/
