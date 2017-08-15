@@ -3,7 +3,7 @@
 Plugin Name: How'a U Demo Feature
 Plugin URI: http://eighty20results.com/wordpress-plugins/
 Description: Website demo for the How's U service
-Version: 1.1
+Version: 1.2
 Requires: 4.8
 Tested: 4.8.1
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
@@ -39,7 +39,7 @@ if ( ! defined( 'HOWSU_DEMO_PLUGIN_URL' ) ) {
 }
 
 if ( ! defined( 'HOWSU_DEMO_VER' ) ) {
-	define( 'HOWSU_DEMO_VER', '1.1' );
+	define( 'HOWSU_DEMO_VER', '1.2' );
 }
 
 if ( ! defined ( 'HOWSU_DEMO_DELETE_USER' ) ) {
@@ -74,7 +74,7 @@ class howsUDemo {
 	 *
 	 * @var string
 	 */
-	private $sms_flow_uuid = '4f66be54-8913-437b-8341-f43982900e51';
+	private $sms_flow_uuid = 'f20c7e9d-bc7e-4b04-a91d-4c5a7cec534e'; // Old flow UUID: '4f66be54-8913-437b-8341-f43982900e51';
 	
 	/**
 	 * howsUDemo constructor.

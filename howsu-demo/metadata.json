@@ -1,17 +1,17 @@
 {
   "name" : "Demo for How's U - TextIt integration",
   "slug" : "howsu-demo",
-  "download_url" : "https://eighty20results.com/protected-content/howsu-demo/howsu-demo-1.1.zip",
-  "version" : "1.1",
+  "download_url" : "https://eighty20results.com/protected-content/howsu-demo/howsu-demo-1.2.zip",
+  "version" : "1.2",
   "tested" : "4.8.1",
   "requires" : "4.8",
   "author" : "Thomas Sjolshagen <thomas@eighty20results.com>",
   "author_homepage" : "https://eighty20results.com/thomas-sjolshagen",
-  "last_updated" : "2016-08-14 13:45:00",
+  "last_updated" : "2016-08-15 13:15:00",
   "homepage" : "https://eighty20results.com/paid-memberships-pro/do-it-for-me/",
   "sections" : {
     "description" : "TextIt integration for the How's U website demo service.",
-    "changelog" : "<h3>1.1</h3><ol><li>BUG FIX: Didn't include all required classes</li></ol><h3>1.0</h3><ol><li>Initial release</li></ol>",
+    "changelog" : "<h3>1.2</h3><ol><li>ENHANCEMENT: Using new Flow for SMS demo (TEXT)</li></ol><h3>1.1</h3><ol><li>BUG FIX: Didn't include all required classes</li></ol><h3>1.0</h3><ol><li>Initial release</li></ol>",
     "faq" : "<h3>I found a bug in the plugin.</h3>Please report your issue to us by using the <a href='https://eighty20results.com/forums/support/' target='_blank'>Support Forum</a> on The Eighty / 20 Website and we'll normally respond within 1 business day."
     }
 }

@@ -1,1 +1,1 @@
-BUG FIX: Didn't include all required classes
+ENHANCEMENT: Using new Flow for SMS demo (TEXT)

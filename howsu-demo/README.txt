@@ -3,7 +3,7 @@ Contributors: sjolshag
 Tags: TextIt, how's U, demo
 Requires at least: 4.8
 Tested up to: 4.8.1
-Stable tag: 1.1
+Stable tag: 1.2
 
 How's U Demo service
 
@@ -16,6 +16,10 @@ Enables the integration with TextIt for the Demo service on Howsu.Today
 2. Activate the plugin through the 'Plugins' menu in WordPress.
 
 == Changelog ==
+
+== 1.2 ==
+
+* ENHANCEMENT: Using new Flow for SMS demo (TEXT)
 
 == 1.1 ==
 
